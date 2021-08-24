@@ -17,6 +17,12 @@ def ply_check(ply, exp):
     assert ply.poisson_yx == pt.approx(exp.poisson_yx, abs=1e-2)
 
 
+def laminate_check(laminate, exp):
+    assert laminate.thickness == pt.approx(exp.thickness, rel=1e-2)
+    assert laminate.stiff_matrix.shape == exp.stiff_m.shape
+    assert laminate.stiff_matrix == pt.approx(exp.stiff_m, rel=1e-5, abs=1e-9)
+
+
 def test_E_glass_poly_70_304(E_glass_poly_70_304, E_glass_poly_70_304_expected):
     ply_check(E_glass_poly_70_304, E_glass_poly_70_304_expected)
 
@@ -25,14 +31,7 @@ def test_E_glass_poly_30_304(E_glass_poly_30_304, E_glass_poly_30_304_expected):
     ply_check(E_glass_poly_30_304, E_glass_poly_30_304_expected)
 
 
-def laminate_check(laminate, exp):
-    assert laminate.thickness == pt.approx(exp.thickness, rel=1e-2)
-    assert laminate.stiff_matrix.shape == exp.stiff_m.shape
-    assert laminate.stiff_matrix == pt.approx(exp.stiff_m, rel=1e-5, abs=1e-9)
-
-
 def test_et_0900_20x(et_0900_20x, et_0900_20x_exp):
-    et_0900_20x.thickness
     laminate_check(et_0900_20x, et_0900_20x_exp)
 
 
