@@ -7,11 +7,11 @@ Created on Wed Mar 31 12:28:58 2021
 from enum import Enum
 
 import numpy as np
-from marshmallow_dataclass import dataclass
+from .dc import dataclass
 
 from .vessel import Vessel
 from .composites import ABCLaminate, SingleSkinLaminate, SandwichLaminate
-from .structural_model import StructuralModel, BoundaryCondition
+from .structural_model import BoundaryCondition, StructuralModel
 
 
 @dataclass

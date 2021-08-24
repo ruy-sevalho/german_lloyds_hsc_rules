@@ -1,2 +1,4 @@
 gl_hsc_scantling/__pycache__/
 test/__pycache__/
+.spyproject/
+.vscode/

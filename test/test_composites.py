@@ -7,21 +7,6 @@ Created on Mon May 31 15:45:24 2021
 import pytest as pt
 
 
-def test_matrix_captures_input(matrix_check):
-    output = [
-        {
-            "name": matrix[1].name,
-            "density": matrix[1].density,
-            "modulus_x": matrix[1].modulus_x,
-            "modulus_xy": matrix[1].modulus_xy,
-            "poisson": matrix[1].poisson,
-        }
-        for matrix in matrix_check
-    ]
-    input_ = [matrix[0] for matrix in matrix_check]
-    assert input_ == output
-
-
 def ply_check(ply, exp):
     assert ply.name == exp.name
     assert ply.thickness == pt.approx(exp.thickness)
@@ -32,12 +17,12 @@ def ply_check(ply, exp):
     assert ply.poisson_yx == pt.approx(exp.poisson_yx, abs=1e-2)
 
 
-def test_E_glass_poly_70_308(E_glass_poly_70_308, E_glass_poly_70_308_expected):
-    ply_check(E_glass_poly_70_308, E_glass_poly_70_308_expected)
+def test_E_glass_poly_70_304(E_glass_poly_70_304, E_glass_poly_70_304_expected):
+    ply_check(E_glass_poly_70_304, E_glass_poly_70_304_expected)
 
 
-def test_E_glass_poly_30_308(E_glass_poly_30_308, E_glass_poly_30_308_expected):
-    ply_check(E_glass_poly_30_308, E_glass_poly_30_308_expected)
+def test_E_glass_poly_30_304(E_glass_poly_30_304, E_glass_poly_30_304_expected):
+    ply_check(E_glass_poly_30_304, E_glass_poly_30_304_expected)
 
 
 def laminate_check(laminate, exp):

@@ -12,7 +12,7 @@ import numpy as np
 import pylatex
 from pylatex import NoEscape, Quantity
 import quantities as pq
-from marshmallow_dataclass import dataclass
+from .dc import dataclass
 from marshmallow import fields, Schema
 
 from .metadata import METADATA, PrintWrapper, NamePrint
@@ -58,7 +58,6 @@ class Criteria:
         return self.allowed / self.value
 
 
-@dataclass
 class Data:
     @property
     def inputs_asdict(self):

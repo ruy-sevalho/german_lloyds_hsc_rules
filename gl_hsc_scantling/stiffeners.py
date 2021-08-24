@@ -10,26 +10,32 @@ from functools import cached_property, lru_cache
 from typing import List
 import abc
 
-from marshmallow import dataclass
-
+from .dc import dataclass
 from .structural_model import StructuralModel, BoundaryCondition
 from .vessel import Vessel
 from .composites import SingleSkinLaminate, SandwichLaminate, ABCLaminate
 
-Point2D = namedtuple("Point2D", "y z")
+# Point2D = namedtuple("Point2D", "y z")
 Z_limits = namedtuple("Z_limits", "inf sup")
 
 
-def coord_transform(position, angle):
+@dataclass
+class Point2D:
+    y: float
+    z: float
+
+
+def coord_transform(position: Point2D, angle: float) -> float:
     rad = np.radians(angle)
     sin = np.sin(rad)
     cos = np.cos(rad)
-    z1 = sin * position[0]
-    z2 = cos * position[1]
-    return z1 + z2
+    z1 = sin * position.y
+    z2 = cos * position.z
+    return z1
 
 
 # (abc.ABC)
+@dataclass
 class SectionElement(abc.ABC):
     """Defition of the necessary parameters that section elements of a stiffener
     must have.
@@ -292,7 +298,6 @@ def att_plate_section_factory(lam_type):
 class Stiffener(StructuralModel):
     """ """
 
-    name: str
     stiff_section: StiffinerSection
     span: float
     spacing_1: float
@@ -309,7 +314,11 @@ class Stiffener(StructuralModel):
 
     @property
     def spacing(self):
-        return np.average(self.spacings)
+        return np.sum(self.spacings)
+
+    @property
+    def area(self):
+        return self.span * self.spacing
 
     @property
     def att_plates_lam(self):
@@ -320,12 +329,12 @@ class Stiffener(StructuralModel):
         xp = list(range(10))
         fp = [0, 0.36, 0.64, 0.82, 0.91, 0.96, 0.98, 0.993, 0.998, 1]
         weffs = [
-            np.interp(self.length_bet_mom / spacing, xp, fp) * spacing
+            np.interp(self.length_bet_mom / self.spacing, xp, fp) * spacing
             for spacing in self.spacings
         ]
         index = self.stiff_att_plate - 1
         weffs[index] = np.min(
-            [self.spacings[1], weffs[index] + self.stiff_section.foot_width]
+            [self.spacings[index], weffs[index] + self.stiff_section.foot_width]
         )
         return weffs
 

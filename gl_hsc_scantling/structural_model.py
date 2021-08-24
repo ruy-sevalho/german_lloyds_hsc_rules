@@ -15,5 +15,6 @@ class BoundaryCondition(str, Enum):
 
 
 class StructuralModel(ABC):
-    span: float
-    spacing: float
+    pass
+    # span: float
+    # spacing: float

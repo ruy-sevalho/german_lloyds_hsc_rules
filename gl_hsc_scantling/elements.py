@@ -9,12 +9,11 @@ CODE FOR USING German Lloyd 2012 High Speed Craft strucutural rules
 from enum import Enum
 
 import numpy as np
-from marshmallow_dataclass import dataclass
 
-from .pressures import Bottom, Side, WetDeck, Deck
+from .dc import dataclass
 from .vessel import Vessel
 from .structural_model import StructuralModel
-from .location import Location
+from .locations import Location
 
 
 def _distance(start, end):

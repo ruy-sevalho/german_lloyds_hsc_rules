@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from typing import List
 
 import numpy as np
-from marshmallow_dataclass import dataclass
+from .dc import dataclass
 from .vessel import Vessel
 
 # Helper functions, all 'pure'.
@@ -264,10 +264,10 @@ class Sea(Pressure):
     def _factor_S_fwd(self, elmt):
         """Table C3.5.2"""
         return _factor_S_fwd_f(
-            vert_acg=self.elmt.vessel.draft,
-            length=self.elmt.vessel.length,
-            block_coef=self.elmt.vessel.block_coef,
-            draft=self.elmt.vessel.draft,
+            vert_acg=elmt.vessel.draft,
+            length=elmt.vessel.length,
+            block_coef=elmt.vessel.block_coef,
+            draft=elmt.vessel.draft,
         )
 
     def _factor_S_aft(self, elmt):
@@ -304,6 +304,7 @@ class Impact(Pressure):
     """C3.5.3 Impact pressure on the bottom hull parameters and calculation."""
 
     name = "impact"
+    sea_pressure = Sea()
 
     # Table C3.5.1
     _min_acg_froude_limit_inf = 4.5
@@ -340,7 +341,7 @@ class Impact(Pressure):
 
     def _ref_area(self, elmt):
         return _ref_area_f(
-            displacement=elmt.vessel.displacement, draft=elmt.vessel.draf
+            displacement=elmt.vessel.displacement, draft=elmt.vessel.draft
         )
 
     # def _area(self, elmt):
@@ -349,11 +350,11 @@ class Impact(Pressure):
     def _coef_k3(self, elmt):
         return _coef_k3_f(
             deadrise_eff=_effective_deadrise(elmt.location.deadrise),
-            deadrise_lcg_eff=_effective_deadrise(elmt.vessel.deadrise_lcg_eff),
+            deadrise_lcg_eff=_effective_deadrise(elmt.vessel.deadrise_lcg),
         )
 
     def _param_u(self, elmt):
-        return _param_u_f(area=self.elmt.model.area, ref_area=self._ref_area(elmt))
+        return _param_u_f(area=elmt.model.area, ref_area=self._ref_area(elmt))
 
     def _coef_k2(self, elmt):
         return _coef_k2_f(self._param_u(elmt))
@@ -363,7 +364,7 @@ class Impact(Pressure):
             x_pos=elmt.x_pos,
             x_lim=self._x_lim(elmt),
             pressure_impact_pre=self._pressure_impact_pre(elmt),
-            pressure_sea=self.elmt.pressures["sea"],
+            pressure_sea=self.sea_pressure.calc(elmt),
         )
 
     @abstractmethod
@@ -383,7 +384,7 @@ class ImpactBottom(Impact):
 
     def _pressure_impact_pre(self, elmt):
         return _pressure_impact_bottom_pre_f(
-            draft=elmt.vessel.draf,
+            draft=elmt.vessel.draft,
             vert_acg=elmt.vessel.vert_acg,
             coef_k1=self._coef_k1(elmt),
             coef_k2=self._coef_k2(elmt),
@@ -410,7 +411,7 @@ class ImpactWetDeck(Impact):
         return _pressure_impact_wet_deck_pre_f(
             speed=elmt.vessel.speed,
             sig_wave_height=elmt.vessel.sig_wave_height,
-            air_gap=self.elmt.location.air_gap,
+            air_gap=elmt.location.air_gap,
             coef_k2=self._coef_k2(elmt),
             coef_k3=self._coef_k3(elmt),
             coef_kwd=self._coef_kwd(elmt),
@@ -437,7 +438,7 @@ class DeckHouse(Pressure):
         return self._pressure_walls(elmt)
 
     def _x1(self, elmt):
-        return _x1_f(midship=elmt.vessel.midship, elmt=elmt.x_pos, elmt=elmt.x)
+        return _x1_f(midship=elmt.vessel.midship, x_pos=elmt.x_pos, x=elmt.x)
 
     def _coef_ksu(self, elmt):
         return _coef_ksu_f(

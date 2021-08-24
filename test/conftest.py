@@ -9,6 +9,7 @@ from collections import OrderedDict
 import pytest as pt
 import numpy as np
 from gl_hsc_scantling.composites import (
+    Lamina_parts_woven,
     Matrix,
     Fiber,
     Core,
@@ -23,268 +24,11 @@ from gl_hsc_scantling.vessel import Vessel
 from gl_hsc_scantling.stiffeners import LBar, Stiffener
 from .exp_output import ExpPly, ExpLaminate, ExpStiffSection
 
-
-@pt.fixture
-def vessel_input_ex1():
-    return OrderedDict(
-        [
-            ("name", "catamaran"),
-            ("service_range", "USR"),
-            ("type_of_service", "PASSENGER"),
-            ("speed", 15),
-            ("displacement", 6),
-            ("length", 10.5),
-            ("beam", 6.5),
-            ("fwd_perp", 0),
-            ("aft_perp", 10),
-            ("draft", 0.51),
-            ("z_baseline", -0.51),
-            ("block_coef", 0.4),
-            ("water_plane_area", 10),
-            ("lcg", 6),
-            ("deadrise_lcg", 12),
-            ("dist_hull_cl", 4.6),
-        ]
-    )
-
-
-@pt.fixture
-def vessel_ex1(vessel_input_ex1):
-    return Vessel(**vessel_input_ex1)
-
-
-"""Matrices"""
-
-
-@pt.fixture
-def polyester_gl_input():
-    """Table C3.8.1 - generica material data"""
-    return {
-        "name": "polyester",
-        "density": 1200,
-        "modulus_x": 3000000,
-        "modulus_xy": 1140000,
-        "poisson": 0.316,
-    }
-
-
-@pt.fixture
-def polyester_gl(polyester_gl_input):
-    return Matrix(**polyester_gl_input)
-
-
-@pt.fixture
-def epoxy_gl_input():
-    """Table C3.8.1 - generica material data"""
-    return {
-        "name": "epoxy",
-        "density": 1200,
-        "modulus_x": 3600000,
-        "modulus_xy": 1330000,
-        "poisson": 0.35,
-    }
-
-
-@pt.fixture
-def epoxy_gl(epoxy_gl_input):
-    return Matrix(**epoxy_gl_input)
-
-
-@pt.fixture
-def matrix_check(polyester_gl_input, polyester_gl, epoxy_gl_input, epoxy_gl):
-    return [(polyester_gl_input, polyester_gl), (epoxy_gl_input, epoxy_gl)]
-
-
-@pt.fixture
-def matrices(polyester_gl, epoxy_gl):
-    args = [polyester_gl, epoxy_gl]
-    return {arg.name: arg for arg in args}
-
-
-"""Fibers"""
-
-
-@pt.fixture
-def eglass_gl_input():
-    """Table C3.8.1 - generica material data"""
-    return {
-        "name": "e-glass",
-        "density": 2540,
-        "modulus_x": 73000000,
-        "modulus_y": 73000000,
-        "modulus_xy": 30000000,
-        "poisson": 0.18,
-    }
-
-
-@pt.fixture
-def eglass_gl(eglass_gl_input):
-    return Fiber(**eglass_gl_input)
-
-
-@pt.fixture
-def sglass_gl_input():
-    """Table C3.8.1 - generica material data"""
-    return {
-        "name": "s-glass",
-        "density": 2490,
-        "modulus_x": 86000000,
-        "modulus_y": 86000000,
-        "modulus_xy": 35000000,
-        "poisson": 0.21,
-    }
-
-
-@pt.fixture
-def sglass_gl(sglass_gl_input):
-    return Fiber(**sglass_gl_input)
-
-
-@pt.fixture
-def fibers(eglass_gl, sglass_gl):
-    args = [eglass_gl, sglass_gl]
-    return {arg.name: arg for arg in args}
-
-
-"""Composed plies"""
-
-
-@pt.fixture
-def E_glass_poly_70_308_input():
-    return {
-        "name": "E_glass_poly_70_308",
-        "cloth_type": "woven",
-        "fiber_type": "e-glass",
-        "matrix_type": "polyester",
-        "f_mass_cont": 0.7,
-        "f_area_density": 0.304,
-        "max_strain_x": 0.0035,
-        "max_strain_xy": 0.007,
-    }
-
-
-@pt.fixture
-def E_glass_poly_70_308(fibers, matrices, E_glass_poly_70_308_input):
-    return lamina_factory(fibers, matrices, **E_glass_poly_70_308_input)
-
-
-@pt.fixture
-def E_glass_poly_70_308_expected():
-    return ExpPly(
-        0.000228256467942,
-        39704119.8501873,
-        9814079.99527406,
-        4058669.26991943,
-        0.244689138576779,
-        0.059409655355304,
-        "E_glass_poly_70_308",
-    )
-
-
-@pt.fixture
-def E_glass_poly_30_308_input():
-    return {
-        "name": "E_glass_poly_30_308",
-        "cloth_type": "woven",
-        "fiber_type": "e-glass",
-        "matrix_type": "polyester",
-        "f_mass_cont": 0.3,
-        "f_area_density": 0.304,
-        "max_strain_x": 0.0035,
-        "max_strain_xy": 0.007,
-    }
-
-
-@pt.fixture
-def E_glass_poly_30_308(fibers, matrices, E_glass_poly_30_308_input):
-    return lamina_factory(fibers, matrices, **E_glass_poly_30_308_input)
-
-
-@pt.fixture
-def E_glass_poly_30_308_expected():
-    return ExpPly(
-        thickness=0.000710796150481,
-        modulus_x=14786716.5575304,
-        modulus_y=4256597.62674039,
-        modulus_xy=1697946.00161313,
-        poisson_xy=0.293100093545369,
-        poisson_yx=0.084118801363399,
-        name="E_glass_poly_30_308",
-    )
-
-
-@pt.fixture
-def et_0900_input():
-    return {
-        "modulus_x": 14336000,
-        "modulus_y": 39248000,
-        "modulus_xy": 4530000,
-        "poisson_xy": 0.09,
-        "thickness": 0.000228,
-        "f_mass_cont": 0.7,
-        "f_area_density": 0.304,
-        "max_strain_x": 0.035,
-        "max_strain_xy": 0.07,
-        "name": "et_0900",
-    }
-
-
-@pt.fixture
-def et_0900(et_0900_input):
-    return Lamina(**et_0900_input)
-
-
-"""Cores"""
-
-
-@pt.fixture
-def H80_input():
-    return {
-        "core_type": "solid",
-        "strength_shear": 950,
-        "modulus_shear": 23000,
-        "strength_tens": 2200,
-        "modulus_tens": 85000,
-        "strength_comp": 1150,
-        "modulus_comp": 80000,
-        "density": 80,
-        "resin_absorption": 0.35,
-        "name": "H80",
-    }
-
-
-@pt.fixture
-def H80(H80_input):
-    return Core_mat(**H80_input)
-
-
-@pt.fixture
-def cores_mat(H80):
-    cores = [H80]
-    return {core.name: core for core in cores}
-
-
-@pt.fixture
-def H80_20mm_input(H80):
-    return {"core_material": H80, "thickness": 0.02, "name": "H80_20mm"}
-
-
-@pt.fixture
-def H80_20mm(H80_20mm_input):
-    return Core(**H80_20mm_input)
-
-
-"""Plies dict"""
-
-
-@pt.fixture
-def plies(E_glass_poly_70_308, E_glass_poly_30_308, et_0900, H80_20mm):
-    args = [E_glass_poly_70_308, E_glass_poly_30_308, et_0900, H80_20mm]
-    return {arg.name: arg for arg in args}
-
-
-"""Laminates"""
-
+from .fixatures_vessel import *
+from .fixatures_matrices import *
+from .fixatures_fibers import *
+from .fixatures_laminas import *
+from .fixatures_cores import *
 
 @pt.fixture
 def et_0900_20x_input(et_0900):
@@ -346,7 +90,9 @@ def et_0900_20x_input(et_0900):
 
 @pt.fixture
 def et_0900_20x_45deg(et_0900_20x_45deg_input):
-    return SingleSkinLaminate(et_0900_20x_45deg_input, "et_0900_20x_45deg")
+    return SingleSkinLaminate(
+        name="et_0900_20x_45deg", plies_unpositioned=et_0900_20x_45deg_input
+    )
 
 
 @pt.fixture
@@ -380,22 +126,24 @@ def et_0900_20x_45deg_exp():
 def sandwich_laminate_skin_input(et_0900):
     orientation = [0, 90]
     lam = [Ply(material=et_0900, orientation=ang) for ang in orientation] * 5
-    # lam.insert(10, {"ply_material": "H80_20mm", "orientation": 0})
+
     return lam
 
 
 @pt.fixture
 def sandwich_laminate_skin(sandwich_laminate_skin_input):
-    return SingleSkinLaminate(sandwich_laminate_skin_input, "sandwich_laminate_skin")
+    return SingleSkinLaminate(
+        name="sandwich_laminate_skin", plies_unpositioned=sandwich_laminate_skin_input
+    )
 
 
 @pt.fixture
 def sandwich_laminate(sandwich_laminate_skin, H80_20mm):
     return SandwichLaminate(
-        sandwich_laminate_skin,
-        sandwich_laminate_skin,
-        H80_20mm,
-        "sandwich_laminate",
+        name="sandwich_laminate",
+        outter_laminate=sandwich_laminate_skin,
+        inner_laminate=sandwich_laminate_skin,
+        core=H80_20mm,
     )
 
 

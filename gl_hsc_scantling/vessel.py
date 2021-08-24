@@ -4,12 +4,13 @@ Created on Tue Jun 29 09:38:12 2021
 
 @author: ruy
 """
-from dataclasses import dataclass, field, asdict
+from dataclasses import field, asdict
 from enum import Enum
 from abc import ABC
 
 import numpy as np
 from pylatex import NoEscape, Quantity
+from .dc import dataclass
 from marshmallow import Schema, fields
 
 from .constants import gravity

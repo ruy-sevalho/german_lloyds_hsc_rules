@@ -267,4 +267,3 @@ def generate_report(session, file_name="report"):
 
     doc.generate_tex(file_name)
     return doc
-    return doc

@@ -11,7 +11,7 @@ from enum import Enum, auto
 from typing import Tuple
 
 import numpy as np
-from marshmallow_dataclass import dataclass
+from .dc import dataclass
 
 from .report import (
     NamePrint,
@@ -63,6 +63,7 @@ class Fiber(Data):
     poisson: float
 
 
+@dataclass
 class BaseLamina(abc.ABC, Data):
     @property
     def limit_strain(self):
@@ -90,6 +91,7 @@ class BaseLamina(abc.ABC, Data):
 class Lamina(BaseLamina):
     """Single lamina externally defiened properties"""
 
+    name: str
     modulus_x: float
     modulus_y: float
     modulus_xy: float
@@ -99,7 +101,6 @@ class Lamina(BaseLamina):
     f_area_density: float
     max_strain_x: float
     max_strain_xy: float
-    name: str = "Lamina"
 
 
 def lamina_factory(
@@ -133,17 +134,13 @@ class Lamina_parts_woven(BaseLamina):
     of laminated structures.
     """
 
+    name: str
     fiber: Fiber
     matrix: Matrix
     f_mass_cont: float
     f_area_density: float
     max_strain_x: float
     max_strain_xy: float
-    name: str = "Lamina"
-
-    # @property
-    # def _modulus_table(self):
-    #     return {}
 
     @property
     def f_vol_cont(self):
@@ -224,6 +221,7 @@ class Core_mat(Data):
     """Core material, with strength and modulus inputs in kPa.
     Density value should be in kg/m3 and resin absorption in kg/m2"""
 
+    name: str
     strength_shear: float
     modulus_shear: float
     strength_tens: float
@@ -233,16 +231,15 @@ class Core_mat(Data):
     density: float
     resin_absorption: float = 0
     core_type: str = "solid"
-    name: str = "Core Material"
 
 
 @dataclass
 class Core(Data):
     """Core definied by core material and thickness (m)"""
 
+    name: str
     core_material: Core_mat
     thickness: float
-    name: str = "Core"
 
 
 @dataclass
@@ -653,8 +650,8 @@ class ABCLaminate(Data, ABC):
 @dataclass
 class SingleSkinLaminate(ABCLaminate):
 
+    name: str
     plies_unpositioned: list[Ply]
-    name: str = "Laminate"
 
     @property
     def plies(self):
@@ -673,10 +670,10 @@ class SandwichLaminate(ABCLaminate):
     Core type.
     """
 
+    name: str
     outter_laminate: SingleSkinLaminate
     inner_laminate: SingleSkinLaminate
     core: Core
-    name: str = "Laminate"
 
     @property
     def plies_unpositioned(self):

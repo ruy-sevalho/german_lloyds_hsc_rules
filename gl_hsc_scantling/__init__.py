@@ -8,8 +8,7 @@ Automation of German Lloyd 2012 High Speed Craft strucutural rules calculation
 """
 
 from .vessel import Vessel
-from .stiffeners import Stiffener, stiff_section_factory
-from .panels import Panel
+
 from .composites import (
     Fiber,
     Matrix,
@@ -22,9 +21,23 @@ from .composites import (
     Lamina_parts_csm,
     SingleSkinLaminate,
     SandwichLaminate,
+    Ply,
 )
+from .elements import StructuralElement
+from .panels import Panel
+from .locations import (
+    Bottom,
+    Side,
+    Deck,
+    WetDeck,
+    DeckHouse,
+    DeckHouseMainFront,
+    DeckHouseMainSide,
+    DeckHouseOther,
+)
+from .stiffeners import Stiffener, LBar
 
-from .read_xls import read_xls
-from .to_tex import to_tex
-from .tex import generate_report
-from .session_manager import evaluate, run_xls
+# from .read_xls import read_xls
+# from .to_tex import to_tex
+# from .tex import generate_report
+# from .session_manager import evaluate, run_xls
