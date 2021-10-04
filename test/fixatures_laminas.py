@@ -39,6 +39,32 @@ def E_glass_poly_70_304_expected():
 
 
 @pt.fixture
+def E_glass_poly_50_304(eglass_gl, polyester_gl):
+    return Lamina_parts_woven(
+        name="E_glass_poly_50_304",
+        fiber=eglass_gl,
+        matrix=polyester_gl,
+        f_mass_cont=0.5,
+        f_area_density=0.304,
+        max_strain_x=0.0035,
+        max_strain_xy=0.007,
+    )
+
+
+@pt.fixture
+def E_glass_poly_50_304_expected():
+    return ExpPly(
+        0.000373018372703412,
+        25459893.0481283,
+        5742357.49732886,
+        2397438.62223788,
+        0.272363636363636,
+        0.0614303196920717,
+        "E_glass_poly_50_304",
+    )
+
+
+@pt.fixture
 def E_glass_poly_30_304(eglass_gl, polyester_gl):
     return Lamina_parts_woven(
         name="E_glass_poly_30_304",

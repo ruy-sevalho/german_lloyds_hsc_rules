@@ -6,6 +6,11 @@ Created on Mon May 31 15:45:24 2021
 """
 import pytest as pt
 
+# from gl_hsc_scantling.composites import Lamina
+
+
+def id_func(fixture):
+    return fixture[0].name
 
 def ply_check(ply, exp):
     assert ply.name == exp.name
@@ -29,6 +34,9 @@ def test_E_glass_poly_70_304(E_glass_poly_70_304, E_glass_poly_70_304_expected):
 
 def test_E_glass_poly_30_304(E_glass_poly_30_304, E_glass_poly_30_304_expected):
     ply_check(E_glass_poly_30_304, E_glass_poly_30_304_expected)
+
+def test_E_glass_poly_50_304(E_glass_poly_50_304, E_glass_poly_50_304_expected):
+    ply_check(E_glass_poly_50_304, E_glass_poly_50_304_expected)
 
 
 def test_et_0900_20x(et_0900_20x, et_0900_20x_exp):

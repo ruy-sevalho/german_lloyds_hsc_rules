@@ -24,10 +24,10 @@ vessel = Vessel(
     name="catamaran",
     speed=15,
     displacement=6,
-    length=10.5,
+    length=10,
     beam=6.5,
-    fwd_perp=0,
-    aft_perp=10,
+    fwd_perp=10,
+    aft_perp=0,
     draft=0.51,
     z_baseline=-0.51,
     block_coef=0.4,
@@ -143,5 +143,20 @@ panel_wet_deck_element = StructuralElement(
     model=panel_wet,
     location=wet_deck,
 )
+
+panel = Panel(dim_x=1, dim_y=1, laminate=et_0900_20x)
+bottom = Bottom(deadrise=16)
+bottom_panel_01 = StructuralElement(
+    name="Bottom Panel 01",
+    x=8,
+    z=-0.3,
+    vessel=vessel,
+    model=panel,
+    location=bottom,
+)
+print(stiffener_element.name)
 print(stiffener_element.pressures)
+print(panel_wet_deck_element.name)
 print(panel_wet_deck_element.pressures)
+print(bottom_panel_01.name)
+print(bottom_panel_01.pressures)

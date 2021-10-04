@@ -13,8 +13,7 @@ import numpy as np
 from .dc import dataclass
 from .vessel import Vessel
 from .structural_model import StructuralModel
-
-from .locations_abc import Location
+from .locations import Location
 
 
 def _distance(start, end):
@@ -47,7 +46,7 @@ class StructuralElement:
         )
 
     @property
-    def pressures(self) -> dict[str, float]:
+    def pressures(self):
         return self.location.calc_pressures(self)
 
     @property

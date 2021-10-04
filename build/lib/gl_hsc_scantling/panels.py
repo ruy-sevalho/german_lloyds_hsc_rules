@@ -19,9 +19,9 @@ class Panel(StructuralModel):
 
     dim_x: float
     dim_y: float
+    curvature_x: float
+    curvature_y: float
     laminate: ABCLaminate
-    curvature_x: float = 0
-    curvature_y: float = 0
     bound_cond: BoundaryCondition = BoundaryCondition.FIXED
     chine: bool = False
     chine_angle: float = 0

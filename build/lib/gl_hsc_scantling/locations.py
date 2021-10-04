@@ -12,10 +12,6 @@ from typing import List
 import numpy as np
 from .dc import dataclass
 from .vessel import Vessel
-from .locations_abc import Location, Pressure
-from .elements import StructuralElement
-from .panels import Panel
-from .stiffeners import Stiffener
 
 # Helper functions, all 'pure'.
 def _pressure_sea_f(z_baseline, draft, p_sea_min, factor_S):
@@ -146,13 +142,11 @@ def _param_u_f(area, ref_area):
     return 100 * area / ref_area
 
 
-def _coef_k2_f(param_u, k2_min) -> float:
-    k2 = 0.455 - 0.35 * ((param_u ** 0.75 - 1.7) / (param_u ** 0.75 + 1.7))
-    return np.max([k2_min, k2])
+def _coef_k2_f(param_u):
+    return 0.455 - 0.35 * ((param_u ** 0.75 - 1.7) / (param_u ** 0.75 + 1.7))
 
 
 def _pressure_impact_f(x_pos, x_lim, pressure_impact_pre, pressure_sea):
-    print(f"x lim: {x_lim}  x pos: {x_pos}")
     if x_pos > x_lim:
         return pressure_impact_pre
     elif x_pos > x_lim - 0.1:
@@ -170,10 +164,6 @@ def _coef_k1_f(x_pos):
 
 
 def _pressure_impact_bottom_pre_f(draft, vert_acg, coef_k1, coef_k2, coef_k3):
-    print(
-        f"draft: {draft} vert_acg: {vert_acg} coef_k1: {coef_k1} coef_k2: {coef_k2} coef_k3: {coef_k3}"
-    )
-    print(f'p impact: {100 * draft * coef_k1 * coef_k2 * coef_k3 * vert_acg}')
     return 100 * draft * coef_k1 * coef_k2 * coef_k3 * vert_acg
 
 
@@ -237,16 +227,32 @@ def _pressure_walls_min_f(length):
     return 6.5 + 0.06 * length
 
 
+# Abstract classes
+class Pressure(ABC):
+    name: str
+
+    @abstractmethod
+    def calc(self, elmt) -> float:
+        pass
+
+
+class Location(ABC):
+    _pressures: List[Pressure]
+
+    def calc_pressures(self, elmt):
+        return {pressure.name: pressure.calc(elmt=elmt) for pressure in self._pressures}
+
+
 # Pressures
 class Sea(Pressure):
     """C3.5.5.1 Sea pressure on bottom and side shell"""
 
     name = "sea"
 
-    def calc(self, elmt: StructuralElement) -> float:
+    def calc(self, elmt) -> float:
         return self._pressure(elmt)
 
-    def _pressure(self, elmt: StructuralElement) -> float:
+    def _pressure(self, elmt):
         """C3.5.5.1"""
         return _pressure_sea_f(
             z_baseline=elmt.z_baseline,
@@ -299,24 +305,23 @@ class Impact(Pressure):
 
     name = "impact"
     sea_pressure = Sea()
-    _coef_k2_min_table = {Panel: 0.5, Stiffener: 0.45}
 
     # Table C3.5.1
     _min_acg_froude_limit_inf = 4.5
     _min_acg_froude_limit_sup = 5
     _max_acg_froude_limit = 5
 
-    def calc(self, elmt) -> float:
+    def calc(self, elmt):
         return self._pressure_impact(elmt)
 
-    def _x_lim(self, elmt) -> float:
+    def _x_lim(self, elmt):
         return _x_lim_f(
             vert_acg=elmt.vessel.vert_acg,
             x_lim_Froude_n_min=self._x_lim_sp_len_ratio_min(elmt),
             x_lim_Froude_n_max=self._x_lim_sp_len_ratio_max(elmt),
         )
 
-    def _x_lim_sp_len_ratio_min(self, elmt) -> float:
+    def _x_lim_sp_len_ratio_min(self, elmt):
         return _x_lim_sp_len_ratio_min_f(
             sp_len_ratio=elmt.vessel.sp_len_ratio,
             min_acg_froude_limit_inf=self._min_acg_froude_limit_inf,
@@ -325,7 +330,7 @@ class Impact(Pressure):
             x_lim_min_acg_sup=self._x_lim_min_acg_sup,
         )
 
-    def _x_lim_sp_len_ratio_max(self, elmt) -> float:
+    def _x_lim_sp_len_ratio_max(self, elmt):
         return _x_lim_sp_len_ratio_max_f(
             sp_len_ratio=elmt.vessel.sp_len_ratio,
             max_acg_froude_limit_inf=self._min_acg_froude_limit_inf,
@@ -351,16 +356,10 @@ class Impact(Pressure):
     def _param_u(self, elmt):
         return _param_u_f(area=elmt.model.area, ref_area=self._ref_area(elmt))
 
-    def _coef_k2(self, elmt: StructuralElement):
-        return _coef_k2_f(
-            self._param_u(elmt), self._coef_k2_min_table[type(elmt.model)]
-        )
+    def _coef_k2(self, elmt):
+        return _coef_k2_f(self._param_u(elmt))
 
     def _pressure_impact(self, elmt):
-        print(elmt.name)
-        print(self.name)
-        print(self._pressure_impact_pre(elmt))
-        print(f"x_lim: {self._x_lim(elmt)}")
         return _pressure_impact_f(
             x_pos=elmt.x_pos,
             x_lim=self._x_lim(elmt),
