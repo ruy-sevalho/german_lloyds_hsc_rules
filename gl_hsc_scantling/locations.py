@@ -26,6 +26,14 @@ def _pressure_sea_f(z_baseline, draft, p_sea_min, factor_S):
     return np.max([p_sea_min, p])
 
 
+def _pressure_sea_interpolate_f(
+    x_pos: float, pressure_below_05: float, pressure_above_09: float
+) -> float:
+    xp = [0.5, 0.9]
+    fp = [pressure_below_05, pressure_above_09]
+    return np.interp(x_pos, xp, fp)
+
+
 def _factor_S_fwd_f(vert_acg, length, block_coef, draft):
     """Table C3.5.2"""
     return np.max(
@@ -54,18 +62,6 @@ def _factor_S_aft_f(vert_acg, length, draft):
             draft,
         ]
     )
-
-
-def _factor_S_f(factor_S_aft, factor_S_fwd, x_pos):
-    """Table C3.5.2"""
-    xp = [0, 0.5, 0.9, 1]
-    fp = [
-        factor_S_aft,
-        factor_S_aft,
-        factor_S_fwd,
-        factor_S_fwd,
-    ]
-    return np.interp(x_pos, xp, fp)
 
 
 def _preassure_sea_min_aft_f(length):
@@ -173,7 +169,7 @@ def _pressure_impact_bottom_pre_f(draft, vert_acg, coef_k1, coef_k2, coef_k3):
     print(
         f"draft: {draft} vert_acg: {vert_acg} coef_k1: {coef_k1} coef_k2: {coef_k2} coef_k3: {coef_k3}"
     )
-    print(f'p impact: {100 * draft * coef_k1 * coef_k2 * coef_k3 * vert_acg}')
+    print(f"p impact: {100 * draft * coef_k1 * coef_k2 * coef_k3 * vert_acg}")
     return 100 * draft * coef_k1 * coef_k2 * coef_k3 * vert_acg
 
 
@@ -248,11 +244,26 @@ class Sea(Pressure):
 
     def _pressure(self, elmt: StructuralElement) -> float:
         """C3.5.5.1"""
+        return _pressure_sea_interpolate_f(
+            x_pos=elmt.x_pos,
+            pressure_below_05=self._pressure_below_05L(elmt=elmt),
+            pressure_above_09=self._pressure_above_09L(elmt=elmt),
+        )
+
+    def _pressure_below_05L(self, elmt: StructuralElement) -> float:
         return _pressure_sea_f(
             z_baseline=elmt.z_baseline,
             draft=elmt.vessel.draft,
-            p_sea_min=self._preassure_sea_min(elmt),
-            factor_S=self._factor_S(elmt),
+            p_sea_min=self._preassure_sea_min_aft(elmt=elmt),
+            factor_S=self._factor_S_aft(elmt=elmt),
+        )
+
+    def _pressure_above_09L(self, elmt: StructuralElement) -> float:
+        return _pressure_sea_f(
+            z_baseline=elmt.z_baseline,
+            draft=elmt.vessel.draft,
+            p_sea_min=self._preassure_sea_min_fwd(elmt=elmt),
+            factor_S=self._factor_S_fwd(elmt=elmt),
         )
 
     def _factor_S_fwd(self, elmt):
@@ -272,21 +283,13 @@ class Sea(Pressure):
             draft=elmt.vessel.draft,
         )
 
-    def _factor_S(self, elmt):
-        """Table C3.5.2"""
-        return _factor_S_f(
-            factor_S_aft=self._factor_S_aft(elmt),
-            factor_S_fwd=self._factor_S_fwd(elmt),
-            x_pos=elmt.x_pos,
-        )
-
     def _preassure_sea_min_fwd(self, elmt):
         return _preassure_sea_min_fwd_f(length=elmt.vessel.length)
 
     def _preassure_sea_min_aft(self, elmt):
         return _preassure_sea_min_aft_f(elmt.vessel.length)
 
-    def _preassure_sea_min(self, elmt):
+    def _preassure_sea_min(self, elmt) -> float:
         return _preassure_sea_min_f(
             preassure_sea_min_aft=self._preassure_sea_min_aft(elmt),
             preassure_sea_min_fwd=self._preassure_sea_min_fwd(elmt),
