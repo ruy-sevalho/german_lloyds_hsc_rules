@@ -113,3 +113,42 @@ def panel_bottom_05(et_0900_20x, vessel_ex1):
 @pt.fixture
 def panel_bottom_05_exp():
     return ExpPanel(name="Bottom Panel 05", pressures={"impact": 15.9375, "sea": 20})
+
+
+@pt.fixture
+def panel_bottom_06(et_0900_20x, vessel_ex1):
+    panel = Panel(dim_x=0.1, dim_y=0.1, laminate=et_0900_20x)
+    bottom = Bottom(deadrise=5)
+    return StructuralElement(
+        name="Bottom Panel 06",
+        x=6.5,
+        z=-0.3,
+        vessel=vessel_ex1,
+        model=panel,
+        location=bottom,
+    )
+
+
+@pt.fixture
+def panel_bottom_06_exp():
+    return ExpPanel(
+        name="Bottom Panel 06", pressures={"impact": 36.2260174353845, "sea": 16.171875}
+    )
+
+
+@pt.fixture
+def panel_side_01(et_0900_20x, vessel_ex1):
+    panel = Panel(dim_x=1, dim_y=1, laminate=et_0900_20x)
+    return StructuralElement(
+        name="Side Panel 01",
+        x=8,
+        z=0.2,
+        vessel=vessel_ex1,
+        model=panel,
+        location=Side(),
+    )
+
+
+@pt.fixture
+def panel_side_01_exp():
+    return ExpPanel(name="Side Panel 01", pressures={"sea": 17.6875})

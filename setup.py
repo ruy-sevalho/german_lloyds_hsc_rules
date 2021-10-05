@@ -1,3 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
-setup(author='Ruy Sevalho', name='gl_hsc_scantling', packages=['gl_hsc_scantling']) #where='gl_hsc_scantling'
+if __name__ == "__main__":
+    setup()

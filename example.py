@@ -108,9 +108,9 @@ sandwich_laminate = SandwichLaminate(
 )
 panel = Panel(dim_x=1, dim_y=1, curvature_x=0.1, curvature_y=0.1, laminate=et_0900_20x)
 bottom = Bottom(deadrise=20)
-panel_element = StructuralElement(
-    name="Bottom Panel", x=5, z=-0.3, vessel=vessel, model=panel, location=bottom
-)
+# panel_element = StructuralElement(
+#     name="Bottom Panel", x=5, z=-0.3, vessel=vessel, model=panel, location=bottom
+# )
 lbar = LBar(
     name="L bar",
     laminate_web=et_0900_20x_45,
@@ -129,34 +129,47 @@ stiffener = Stiffener(
     att_plate_2=et_0900_20x,
 )
 wet_deck = WetDeck(deadrise=0, air_gap=0.7)
-stiffener_element = StructuralElement(
-    name="Wet Deck 01", x=2, z=0.7, vessel=vessel, model=stiffener, location=wet_deck
-)
+# stiffener_element = StructuralElement(
+#     name="Wet Deck 01", x=2, z=0.7, vessel=vessel, model=stiffener, location=wet_deck
+# )
 panel_wet = Panel(
     dim_x=1, dim_y=1, curvature_x=0.1, curvature_y=0.1, laminate=et_0900_20x
 )
-panel_wet_deck_element = StructuralElement(
-    name="Wet Deck 01",
-    x=2,
-    z=0.7,
-    vessel=vessel,
-    model=panel_wet,
-    location=wet_deck,
-)
+# panel_wet_deck_element = StructuralElement(
+#     name="Wet Deck 01",
+#     x=2,
+#     z=0.7,
+#     vessel=vessel,
+#     model=panel_wet,
+#     location=wet_deck,
+# )
 
 panel = Panel(dim_x=1, dim_y=1, laminate=et_0900_20x)
 bottom = Bottom(deadrise=16)
-bottom_panel_01 = StructuralElement(
-    name="Bottom Panel 01",
+# bottom_panel_01 = StructuralElement(
+#     name="Bottom Panel 01",
+#     x=8,
+#     z=-0.3,
+#     vessel=vessel,
+#     model=panel,
+#     location=bottom,
+# )
+side_panel = StructuralElement(
+    name="Side Panel 01",
     x=8,
-    z=-0.3,
+    z=0.2,
     vessel=vessel,
     model=panel,
-    location=bottom,
+    location=Side(),
 )
-print(stiffener_element.name)
-print(stiffener_element.pressures)
-print(panel_wet_deck_element.name)
-print(panel_wet_deck_element.pressures)
-print(bottom_panel_01.name)
-print(bottom_panel_01.pressures)
+print(f"8 = {side_panel.pressures}")
+
+side_panel = StructuralElement(
+    name="Side Panel 01",
+    x=6.5,
+    z=0.2,
+    vessel=vessel,
+    model=panel,
+    location=Side(),
+)
+print(f"6.5 = {side_panel.pressures}")

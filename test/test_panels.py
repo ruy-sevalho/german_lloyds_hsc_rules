@@ -34,3 +34,11 @@ def test_panel_bottom_04(panel_bottom_04, panel_bottom_04_exp):
 
 def test_panel_bottom_05(panel_bottom_05, panel_bottom_05_exp):
     panel_pressure_check(panel_bottom_05, panel_bottom_05_exp)
+
+
+def test_panel_bottom_06(panel_bottom_06, panel_bottom_06_exp):
+    panel_pressure_check(panel_bottom_06, panel_bottom_06_exp)
+
+
+def test_panel_side_01(panel_side_01, panel_side_01_exp):
+    panel_pressure_check(panel_side_01, panel_side_01_exp)

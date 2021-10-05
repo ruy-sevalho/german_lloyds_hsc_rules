@@ -148,7 +148,6 @@ def _coef_k2_f(param_u, k2_min) -> float:
 
 
 def _pressure_impact_f(x_pos, x_lim, pressure_impact_pre, pressure_sea):
-    print(f"x lim: {x_lim}  x pos: {x_pos}")
     if x_pos > x_lim:
         return pressure_impact_pre
     elif x_pos > x_lim - 0.1:
@@ -166,10 +165,6 @@ def _coef_k1_f(x_pos):
 
 
 def _pressure_impact_bottom_pre_f(draft, vert_acg, coef_k1, coef_k2, coef_k3):
-    print(
-        f"draft: {draft} vert_acg: {vert_acg} coef_k1: {coef_k1} coef_k2: {coef_k2} coef_k3: {coef_k3}"
-    )
-    print(f"p impact: {100 * draft * coef_k1 * coef_k2 * coef_k3 * vert_acg}")
     return 100 * draft * coef_k1 * coef_k2 * coef_k3 * vert_acg
 
 
@@ -360,10 +355,6 @@ class Impact(Pressure):
         )
 
     def _pressure_impact(self, elmt):
-        print(elmt.name)
-        print(self.name)
-        print(self._pressure_impact_pre(elmt))
-        print(f"x_lim: {self._x_lim(elmt)}")
         return _pressure_impact_f(
             x_pos=elmt.x_pos,
             x_lim=self._x_lim(elmt),
