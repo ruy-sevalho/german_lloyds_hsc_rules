@@ -13,7 +13,6 @@ import numpy as np
 from .dc import dataclass
 from .vessel import Vessel
 from .structural_model import StructuralModel
-
 from .locations_abc import Location
 
 

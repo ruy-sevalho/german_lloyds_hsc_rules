@@ -1,3 +1,4 @@
+from dataclasses import fields
 from gl_hsc_scantling import (
     Vessel,
     Fiber,
@@ -10,6 +11,7 @@ from gl_hsc_scantling import (
     SandwichLaminate,
     Ply,
     Panel,
+    panel_constructor,
     StructuralElement,
     Bottom,
     Side,
@@ -18,6 +20,8 @@ from gl_hsc_scantling import (
     Stiffener,
     LBar,
     stiffeners,
+    location_constructor,
+    structural_element_constructor,
 )
 
 vessel = Vessel(
@@ -162,7 +166,6 @@ side_panel = StructuralElement(
     model=panel,
     location=Side(),
 )
-print(f"8 = {side_panel.pressures}")
 
 side_panel = StructuralElement(
     name="Side Panel 01",
@@ -172,4 +175,30 @@ side_panel = StructuralElement(
     model=panel,
     location=Side(),
 )
-print(f"6.5 = {side_panel.pressures}")
+
+keys = [field.name for field in fields(Panel)]
+print(f"Panel keys {keys}")
+
+laminates = {"et_0900_20x": et_0900_20x}
+panel_input = {
+    "name": "test panel from constructor",
+    "x": 1,
+    "z": 1,
+    "element type": "panel",
+    "dim_x": 1,
+    "dim_y": 1,
+    "laminate": "et_0900_20x",
+    "curvature_x": 0.1,
+    "curvature_y": 0.1,
+    "bound_cond": "FIXED",
+    "chine": True,
+    "chine_angle": 10,
+    "nada a ver": 12,
+    "location": "Bottom",
+    "deadrise": 10,
+}
+panel_from_constructor = structural_element_constructor(
+    vessel, laminates, {}, **panel_input
+)
+
+print(panel_from_constructor.pressures)

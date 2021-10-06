@@ -34,7 +34,6 @@ def coord_transform(position: Point2D, angle: float) -> float:
     return z1
 
 
-# (abc.ABC)
 @dataclass
 class SectionElement(abc.ABC):
     """Defition of the necessary parameters that section elements of a stiffener
@@ -271,7 +270,7 @@ class AttPlateSandwich(StiffinerSection):
 
 
 @dataclass
-class AttPlateSS(StiffinerSection):
+class AttPlateSingleSkin(StiffinerSection):
     """Single Skin attached plate section."""
 
     dimension: float
@@ -290,7 +289,7 @@ class ComposedSection(StiffinerSection):
 
 
 def att_plate_section_factory(lam_type):
-    table = {SingleSkinLaminate: AttPlateSS, SandwichLaminate: AttPlateSandwich}
+    table = {SingleSkinLaminate: AttPlateSingleSkin, SandwichLaminate: AttPlateSandwich}
     return table[lam_type]
 
 
@@ -332,7 +331,10 @@ class Stiffener(StructuralModel):
             np.interp(self.length_bet_mom / self.spacing, xp, fp) * spacing
             for spacing in self.spacings
         ]
-        index = self.stiff_att_plate - 1
+        # since att plates are numbered 1 and 2, but storing list index starts at 0
+        index = (
+            self.stiff_att_plate - 1
+        )  # checking if adding foot with of section gets efffective with greater than spacing
         weffs[index] = np.min(
             [self.spacings[index], weffs[index] + self.stiff_section.foot_width]
         )

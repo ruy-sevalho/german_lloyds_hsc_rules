@@ -8,6 +8,7 @@ from enum import Enum
 
 import numpy as np
 from .dc import dataclass
+from dataclasses import fields
 
 from .vessel import Vessel
 from .composites import ABCLaminate, SingleSkinLaminate, SandwichLaminate
