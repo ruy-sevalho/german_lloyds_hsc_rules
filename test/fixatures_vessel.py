@@ -5,6 +5,7 @@
  """
 import pytest as pt
 from gl_hsc_scantling.vessel import Vessel
+from .exp_output import ExpVessel
 
 
 @pt.fixture
@@ -30,5 +31,19 @@ def vessel_input_ex1():
 
 
 @pt.fixture
-def vessel_ex1(vessel_input_ex1):
+def vessel_ex1(vessel_input_ex1) -> Vessel:
     return Vessel(**vessel_input_ex1)
+
+
+@pt.fixture
+def vessel_ex1_expected():
+    return ExpVessel(
+        **{
+            "vert_acg": 1,
+            "max_wave_height": 1.424449396,
+            "sig_wave_height": 0.407610082404517,
+            "transverse_bending_moment": 54.14568,
+            "transverse_shear_force": 14.7135,
+            "transverse_torsional_moment": 73.5675,
+        }
+    )

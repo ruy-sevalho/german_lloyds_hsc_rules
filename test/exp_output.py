@@ -38,3 +38,12 @@ ExpStiffSection = namedtuple(
 class ExpPanel:
     name: str
     pressures: dict[str, float]
+
+@dataclass
+class ExpVessel:
+    vert_acg: float
+    max_wave_height: float
+    sig_wave_height: float
+    transverse_bending_moment: float
+    transverse_shear_force: float
+    transverse_torsional_moment: float
