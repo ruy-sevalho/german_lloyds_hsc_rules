@@ -1,6 +1,6 @@
 from dataclasses import fields
 from typing import Any
-from .composites import ABCLaminate
+from .composites import ABCLaminate, Fiber, Matrix, LaminaPartsCSM, LaminaPartsWoven
 from .panels import Panel
 from .locations import (
     Location,
@@ -33,6 +33,15 @@ def value_substitution(
     for key, dict_of_values in name_dict_pairs.items():
         inputs.update({key: dict_of_values[inputs[key]]})
     return inputs
+
+
+def lamina_constructor(fibers: dict[str:Fiber], matrices: dict[str:Matrix], **kwargs):
+    table = {"woven": LaminaPartsWoven, "csm": LaminaPartsCSM}
+    lamina = table[kwargs["cloth type"]]
+    name_dict_pairs = {"fiber": fibers, "matrix": matrices}
+    inputs = input_extractor(lamina, kwargs)
+    inputs = value_substitution(inputs, name_dict_pairs)
+    return lamina(**inputs)
 
 
 def panel_constructor(laminates: dict[str:ABCLaminate], **kwargs) -> Panel:

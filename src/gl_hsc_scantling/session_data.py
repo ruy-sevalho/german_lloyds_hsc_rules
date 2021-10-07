@@ -77,6 +77,8 @@ class Session:
     def __post_init__(self, load_input):
         if load_input:
             print("loading")
-    
-    def _load_session(self, ):
-        self.vessel = Vessel(**)
+
+    def _load_session(
+        self,
+    ):
+        self.vessel = Vessel()

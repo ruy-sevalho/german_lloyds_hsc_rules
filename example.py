@@ -1,9 +1,9 @@
 from dataclasses import fields
-from gl_hsc_scantling import (
+from gl_hsc_scantling.shortcut import (
     Vessel,
     Fiber,
     Matrix,
-    Lamina_parts_woven,
+    LaminaPartsWoven,
     Lamina,
     Core_mat,
     Core,
@@ -53,7 +53,7 @@ e_glass = Fiber(
     modulus_xy=30000000,
     poisson=0.18,
 )
-e_glass_poly_70_308 = Lamina_parts_woven(
+e_glass_poly_70_308 = LaminaPartsWoven(
     name="e_glass_poly_70_308",
     fiber=e_glass,
     matrix=polyester,
@@ -182,21 +182,16 @@ print(f"Panel keys {keys}")
 laminates = {"et_0900_20x": et_0900_20x}
 panel_input = {
     "name": "test panel from constructor",
-    "x": 1,
-    "z": 1,
+    "x": 8,
+    "z": -0.3,
     "element type": "panel",
     "dim_x": 1,
     "dim_y": 1,
     "laminate": "et_0900_20x",
-    "curvature_x": 0.1,
-    "curvature_y": 0.1,
-    "bound_cond": "FIXED",
-    "chine": True,
-    "chine_angle": 10,
-    "nada a ver": 12,
     "location": "Bottom",
-    "deadrise": 10,
+    "deadrise": 16,
 }
+exp_panel = {"pressures": {"sea": 17.6875}}
 panel_from_constructor = structural_element_constructor(
     vessel, laminates, {}, **panel_input
 )
