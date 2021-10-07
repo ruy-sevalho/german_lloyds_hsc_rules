@@ -11,9 +11,9 @@ from .vessel import Vessel
 from .composites import (
     Fiber,
     Matrix,
-    Lamina,
-    Lamina_parts_woven,
-    Lamina_parts_csm,
+    LaminaMonolith,
+    LaminaPartsWoven,
+    LaminaPartsCSM,
     lamina_factory,
     Core_mat,
     Core,
@@ -36,10 +36,10 @@ class InputDict:
     matrices: Dict[str, Matrix] = field(default_factory=dict)
     cores_mat: Dict[str, Core_mat] = field(default_factory=dict)
     cores: Dict[str, Core] = field(default_factory=dict)
-    plies_composed: Dict[str, Union[Lamina_parts_csm, Lamina_parts_woven]] = field(
+    plies_composed: Dict[str, Union[LaminaPartsCSM, LaminaPartsWoven]] = field(
         default_factory=dict
     )
-    plies_monolith: Dict[str, Lamina] = field(default_factory=dict)
+    plies_monolith: Dict[str, LaminaMonolith] = field(default_factory=dict)
     single_skin_laminates: Dict[str, SingleSkinLaminate] = field(default_factory=dict)
     sandwhich_laminates: Dict[str, SandwichLaminate] = field(default_factory=dict)
     panels: Dict[str, Panel] = field(default_factory=dict)
@@ -57,10 +57,10 @@ class Session:
     matrices: Dict[str, Matrix] = field(default_factory=dict)
     cores_mat: Dict[str, Core_mat] = field(default_factory=dict)
     cores: Dict[str, Core] = field(default_factory=dict)
-    plies_composed: Dict[str, Union[Lamina_parts_csm, Lamina_parts_woven]] = field(
+    plies_composed: Dict[str, Union[LaminaPartsCSM, LaminaPartsWoven]] = field(
         default_factory=dict
     )
-    plies_monolith: Dict[str, Lamina] = field(default_factory=dict)
+    plies_monolith: Dict[str, LaminaMonolith] = field(default_factory=dict)
     single_skin_laminates: Dict[str, SingleSkinLaminate] = field(default_factory=dict)
     sandwhich_laminates: Dict[str, SandwichLaminate] = field(default_factory=dict)
     panels: Dict[str, Panel] = field(default_factory=dict)
@@ -96,7 +96,7 @@ class Session:
             for row in data.plies_composed
         }
         self.plies_monolith = {
-            row["name"]: Lamina(**row) for row in data.plies_monolith
+            row["name"]: LaminaMonolith(**row) for row in data.plies_monolith
         }
         self.single_skin_laminates = {
             row["name"]: SingleSkinLaminate(

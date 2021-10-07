@@ -12,6 +12,7 @@ import pytest as pt
 def id_func(fixture):
     return fixture[0].name
 
+
 def ply_check(ply, exp):
     assert ply.name == exp.name
     assert ply.thickness == pt.approx(exp.thickness)
@@ -34,6 +35,7 @@ def test_E_glass_poly_70_304(E_glass_poly_70_304, E_glass_poly_70_304_expected):
 
 def test_E_glass_poly_30_304(E_glass_poly_30_304, E_glass_poly_30_304_expected):
     ply_check(E_glass_poly_30_304, E_glass_poly_30_304_expected)
+
 
 def test_E_glass_poly_50_304(E_glass_poly_50_304, E_glass_poly_50_304_expected):
     ply_check(E_glass_poly_50_304, E_glass_poly_50_304_expected)

@@ -6,7 +6,7 @@
 
 import pytest as pt
 
-from gl_hsc_scantling import Core_mat, Core
+from gl_hsc_scantling.shortcut import Core_mat, Core
 
 
 @pt.fixture

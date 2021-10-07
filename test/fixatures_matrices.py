@@ -8,6 +8,28 @@ from gl_hsc_scantling.composites import (
     Matrix,
 )
 
+matrices_inputs = [
+    {
+        "name": "polyester",
+        "density": 1200,
+        "modulus_x": 3000000,
+        "modulus_xy": 1140000,
+        "poisson": 0.316,
+    },
+    {
+        "name": "epoxy",
+        "density": 1200,
+        "modulus_x": 3600000,
+        "modulus_xy": 1330000,
+        "poisson": 0.35,
+    },
+]
+
+
+@pt.fixture
+def matrices(matrices_inputs):
+    return {matrix["name"]: Matrix(**matrix) for matrix in matrices_inputs}
+
 
 @pt.fixture
 def polyester_gl_input():

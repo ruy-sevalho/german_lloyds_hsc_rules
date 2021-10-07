@@ -4,11 +4,10 @@ from .composites import (
     Matrix,
     Core_mat,
     Core,
-    lamina_factory,
-    Lamina,
-    laminate_factory,
+    LaminaMonolith,
     LaminaPartsWoven,
     LaminaPartsCSM,
+    Lamina,
     ABCLaminate,
     SingleSkinLaminate,
     SandwichLaminate,
@@ -29,10 +28,11 @@ from .locations import (
 from .stiffeners import Stiffener, LBar
 from .constructors import (
     panel_constructor,
+    panel_element_constructor,
     location_constructor,
     stiffener_element_constructor,
     stiffener_section_constructor,
-    structural_element_constructor,
+    lamina_constructor,
 )
 
 # from .read_xls import read_xls

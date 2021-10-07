@@ -5,8 +5,17 @@
  """
 
 import pytest as pt
+from gl_hsc_scantling.constructors import panel_element_constructor
 
-from gl_hsc_scantling import Panel, StructuralElement, Bottom, Side, WetDeck, Vessel
+from gl_hsc_scantling.shortcut import (
+    Panel,
+    StructuralElement,
+    Bottom,
+    Side,
+    WetDeck,
+    Vessel,
+    panel_constructor,
+)
 
 from .fixatures_vessel import *
 from .fixatures_laminates import *
@@ -170,4 +179,35 @@ def panel_wet_deck_01(et_0900_20x, vessel_ex1):
 
 @pt.fixture
 def panel_wet_deck_01_exp():
-    return ExpPanel(name="Wet Deck Panel 01", pressures={"sea": 17.6875})
+    return ExpPanel(
+        name="Wet Deck Panel 01",
+        pressures={"sea": 17.6875, "impact": 23.7413793103448},
+    )
+
+
+@pt.fixture
+def panel_wet_deck_02_input():
+    return {
+        "name": "Wet Deck Panel 02",
+        "x": 9.5,
+        "z": 0.2,
+        "element type": "panel",
+        "dim_x": 1,
+        "dim_y": 1,
+        "laminate": "et_0900_20x",
+        "location": "bottom",
+        "deadrise": 16,
+    }
+
+
+@pt.fixture
+def panel_wet_deck_02(vessel_ex1, et_0900_20x, panel_wet_deck_02_input):
+    laminates = {et_0900_20x.name: et_0900_20x}
+    return panel_element_constructor(vessel_ex1, laminates, **panel_wet_deck_02_input)
+
+
+@pt.fixture
+def panel_wet_deck_02_exp():
+    return ExpPanel(
+        name="Wet Deck Panel 02", pressures={"sea": 20, "impact": 14.8383620689655}
+    )

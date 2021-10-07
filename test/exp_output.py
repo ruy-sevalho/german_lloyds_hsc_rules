@@ -6,7 +6,6 @@ Created on Wed Jun  2 15:23:55 2021
 """
 from collections import namedtuple
 from dataclasses import dataclass
-from decimal import setcontext
 from gl_hsc_scantling.locations import Pressure
 
 ExpPly = namedtuple(

@@ -1,6 +1,14 @@
 from dataclasses import fields
 from typing import Any
-from .composites import ABCLaminate, Fiber, Matrix, LaminaPartsCSM, LaminaPartsWoven
+from .composites import (
+    ABCLaminate,
+    Lamina,
+    Fiber,
+    LaminaMonolith,
+    Matrix,
+    LaminaPartsCSM,
+    LaminaPartsWoven,
+)
 from .panels import Panel
 from .locations import (
     Location,
@@ -35,13 +43,26 @@ def value_substitution(
     return inputs
 
 
-def lamina_constructor(fibers: dict[str:Fiber], matrices: dict[str:Matrix], **kwargs):
-    table = {"woven": LaminaPartsWoven, "csm": LaminaPartsCSM}
-    lamina = table[kwargs["cloth type"]]
-    name_dict_pairs = {"fiber": fibers, "matrix": matrices}
-    inputs = input_extractor(lamina, kwargs)
-    inputs = value_substitution(inputs, name_dict_pairs)
-    return lamina(**inputs)
+def lamina_constructor(
+    fibers: dict[str:Fiber], matrices: dict[str:Matrix], **kwargs
+) -> Lamina:
+    def parts_lamina_constructor(
+        fibers: dict[str:Fiber], matrices: dict[str:Matrix], **kwargs
+    ) -> Lamina:
+        table = {"woven": LaminaPartsWoven, "csm": LaminaPartsCSM}
+        lamina = table[kwargs["cloth"]]
+        name_dict_pairs = {"fiber": fibers, "matrix": matrices}
+        inputs = input_extractor(lamina, kwargs)
+        inputs = value_substitution(inputs, name_dict_pairs)
+        return lamina(**inputs)
+
+    def monolith_lamina_constructor(**kwargs) -> Lamina:
+        inputs = input_extractor(LaminaMonolith, kwargs)
+        return LaminaMonolith(**inputs)
+
+    table = {"parts": parts_lamina_constructor, "monoltih": monolith_lamina_constructor}
+    constructor = table[kwargs["properties from"]]
+    return constructor(fibers=fibers, matrices=matrices, **kwargs)
 
 
 def panel_constructor(laminates: dict[str:ABCLaminate], **kwargs) -> Panel:
@@ -84,7 +105,11 @@ def stiffener_element_constructor(
     **kwargs,
 ) -> Stiffener:
     inputs = input_extractor(Stiffener, kwargs)
-    name_dict_pairs = {"laminate": laminates, "stiffener section": stiffeners_sections}
+    name_dict_pairs = {
+        "att_plate_1": laminates,
+        "att_plate_2": laminates,
+        "stiffener section": stiffeners_sections,
+    }
     inputs = value_substitution(inputs, name_dict_pairs)
     return Stiffener(**inputs)
 
@@ -105,3 +130,29 @@ def structural_element_constructor(
     inputs = input_extractor(StructuralElement, kwargs)
     inputs.update({"vessel": vessel, "location": location, "model": model})
     return StructuralElement(**inputs)
+
+
+def panel_element_constructor(
+    vessel,
+    laminates: dict[str:ABCLaminate],
+    **kwargs,
+) -> StructuralElement:
+    location = location_constructor(**kwargs)
+    model = panel_constructor(laminates, **kwargs)
+    inputs = input_extractor(StructuralElement, kwargs)
+    inputs.update({"vessel": vessel, "location": location, "model": model})
+    return StructuralElement(**inputs)
+
+
+# def stiffener_element_constructor(
+#     vessel,
+#     laminates: dict[str:ABCLaminate],
+#     stiffeners_sections: dict[str:StiffinerSection],
+#     **kwargs,
+# ) -> StructuralElement:
+#     location = location_constructor(**kwargs)
+#     inputs = input_extractor(StructuralElement, kwargs)
+#     name_dict_pairs = {"laminate": laminates, "stiffener section": stiffeners_sections}
+#     inputs = value_substitution(inputs, name_dict_pairs)
+#     inputs.update({"vessel": vessel, "location": location, "model": model})
+#     return StructuralElement(**inputs)

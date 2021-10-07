@@ -4,14 +4,13 @@ from gl_hsc_scantling.shortcut import (
     Fiber,
     Matrix,
     LaminaPartsWoven,
-    Lamina,
+    LaminaMonolith,
     Core_mat,
     Core,
     SingleSkinLaminate,
     SandwichLaminate,
     Ply,
     Panel,
-    panel_constructor,
     StructuralElement,
     Bottom,
     Side,
@@ -19,9 +18,9 @@ from gl_hsc_scantling.shortcut import (
     WetDeck,
     Stiffener,
     LBar,
-    stiffeners,
     location_constructor,
-    structural_element_constructor,
+    panel_constructor,
+    panel_element_constructor,
 )
 
 vessel = Vessel(
@@ -62,7 +61,7 @@ e_glass_poly_70_308 = LaminaPartsWoven(
     max_strain_x=0.0035,
     max_strain_xy=0.007,
 )
-et_0900 = Lamina(
+et_0900 = LaminaMonolith(
     name="et_0900",
     modulus_x=14336000,
     modulus_y=39248000,
@@ -180,20 +179,20 @@ keys = [field.name for field in fields(Panel)]
 print(f"Panel keys {keys}")
 
 laminates = {"et_0900_20x": et_0900_20x}
+
 panel_input = {
-    "name": "test panel from constructor",
-    "x": 8,
-    "z": -0.3,
+    "name": "Wet Deck Panel 02",
+    "x": 9.5,
+    "z": 0.2,
     "element type": "panel",
     "dim_x": 1,
     "dim_y": 1,
     "laminate": "et_0900_20x",
-    "location": "Bottom",
+    "location": "wet deck",
     "deadrise": 16,
+    "air_gap": 1,
 }
 exp_panel = {"pressures": {"sea": 17.6875}}
-panel_from_constructor = structural_element_constructor(
-    vessel, laminates, {}, **panel_input
-)
+panel_from_constructor = panel_element_constructor(vessel, laminates, **panel_input)
 
 print(panel_from_constructor.pressures)

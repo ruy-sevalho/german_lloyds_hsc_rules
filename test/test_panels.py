@@ -6,7 +6,7 @@
 
 import pytest as pt
 
-from gl_hsc_scantling import Panel, StructuralElement, Bottom, Side, WetDeck
+from gl_hsc_scantling.shortcut import Panel, StructuralElement, Bottom, Side, WetDeck
 
 from .exp_output import ExpPanel
 
@@ -42,3 +42,11 @@ def test_panel_bottom_06(panel_bottom_06, panel_bottom_06_exp):
 
 def test_panel_side_01(panel_side_01, panel_side_01_exp):
     panel_pressure_check(panel_side_01, panel_side_01_exp)
+
+
+def test_panel_wet_deck_02(panel_wet_deck_02, panel_wet_deck_02_exp):
+    panel_pressure_check(panel_wet_deck_02, panel_wet_deck_02_exp)
+
+
+def test_panel_wet_deck_01(panel_wet_deck_01, panel_wet_deck_01_exp):
+    panel_pressure_check(panel_wet_deck_01, panel_wet_deck_01_exp)

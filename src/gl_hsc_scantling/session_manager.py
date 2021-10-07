@@ -14,10 +14,10 @@ from .composites import (
     Core_mat,
     Core,
     lamina_factory,
-    Lamina,
+    LaminaMonolith,
     laminate_factory,
-    Lamina_parts_woven,
-    Lamina_parts_csm,
+    LaminaPartsWoven,
+    LaminaPartsCSM,
     SingleSkinLaminate,
     SandwichLaminate,
     Ply,
@@ -54,7 +54,9 @@ def evaluate(data, **kwargs):
         row["name"]: lamina_factory(fibers, matrices, **row)
         for row in data.plies_composed
     }
-    plies_mat.update({row["name"]: Lamina(**row) for row in data.plies_monolith})
+    plies_mat.update(
+        {row["name"]: LaminaMonolith(**row) for row in data.plies_monolith}
+    )
 
     laminates = {
         row["name"]: SingleSkinLaminate(

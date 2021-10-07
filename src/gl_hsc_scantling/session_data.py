@@ -11,7 +11,7 @@ from .vessel import Vessel
 from .composites import (
     Fiber,
     Matrix,
-    Lamina,
+    LaminaMonolith,
     Lamina_parts_woven,
     Lamina_parts_csm,
     Core_mat,
@@ -37,7 +37,7 @@ class Input:
     plies_composed: Dict[str, Union[Lamina_parts_csm, Lamina_parts_woven]] = field(
         default_factory=dict
     )
-    plies_monolith: Dict[str, Lamina] = field(default_factory=dict)
+    plies_monolith: Dict[str, LaminaMonolith] = field(default_factory=dict)
     single_skin_laminates: Dict[str, SingleSkinLaminate] = field(default_factory=dict)
     sandwhich_laminates: Dict[str, SandwichLaminate] = field(default_factory=dict)
     panels: Dict[str, Panel] = field(default_factory=dict)
@@ -58,7 +58,7 @@ class Session:
     plies_composed: Dict[str, Union[Lamina_parts_csm, Lamina_parts_woven]] = field(
         default_factory=dict
     )
-    plies_monolith: Dict[str, Lamina] = field(default_factory=dict)
+    plies_monolith: Dict[str, LaminaMonolith] = field(default_factory=dict)
     single_skin_laminates: Dict[str, SingleSkinLaminate] = field(default_factory=dict)
     sandwhich_laminates: Dict[str, SandwichLaminate] = field(default_factory=dict)
     panels: Dict[str, Panel] = field(default_factory=dict)

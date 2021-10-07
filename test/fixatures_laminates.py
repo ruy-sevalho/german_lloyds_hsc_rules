@@ -20,7 +20,7 @@ def build_sub_matrix(
     return np.array([[M11, M12, M16], [M12, M22, M26], [M16, M26, M66]])
 
 
-def build_ABD_matrix(A, B, D):
+def build_ABD_matrix(A: np.array, B: np.array, D: np.array):
     return np.array(np.vstack([np.hstack([A, B]), np.hstack([B, D])]))
 
 
@@ -158,3 +158,10 @@ def sandwich_laminate_exp():
     D = build_sub_matrix(D11, D12, D16, D22, D26, D66)
     stiff_m = build_ABD_matrix(A, B, D)
     return ExpLaminate(thickness=0.02456, stiff_m=stiff_m, name="sandwich_laminate")
+
+
+@pt.fixture
+def laminates(
+    sandwich_laminate, sandwich_laminate_skin, et_0900_20x_45deg, et_0900_20x
+):
+    lam = [sandwich_laminate, sandwich_laminate_skin, et_0900_20x_45deg, et_0900_20x]

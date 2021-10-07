@@ -9,13 +9,12 @@ from collections import OrderedDict
 import pytest as pt
 import numpy as np
 from gl_hsc_scantling.composites import (
-    Lamina_parts_woven,
+    LaminaPartsWoven,
     Matrix,
     Fiber,
     Core,
     Core_mat,
-    lamina_factory,
-    Lamina,
+    LaminaMonolith,
     SingleSkinLaminate,
     SandwichLaminate,
     Ply,

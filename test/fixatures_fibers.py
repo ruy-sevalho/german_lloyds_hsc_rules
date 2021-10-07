@@ -4,9 +4,34 @@
  # @ Description:
  """
 import pytest as pt
-from gl_hsc_scantling.composites import (
+from gl_hsc_scantling.shortcut import (
     Fiber,
 )
+
+
+fiber_inputs = [
+    {
+        "name": "e-glass",
+        "density": 2540,
+        "modulus_x": 73000000,
+        "modulus_y": 73000000,
+        "modulus_xy": 30000000,
+        "poisson": 0.18,
+    },
+    {
+        "name": "s-glass",
+        "density": 2490,
+        "modulus_x": 86000000,
+        "modulus_y": 86000000,
+        "modulus_xy": 35000000,
+        "poisson": 0.21,
+    },
+]
+
+
+@pt.fixture
+def fibers(fiber_inputs):
+    return {fiber["name"]: Fiber(**fiber) for fiber in fiber_inputs}
 
 
 @pt.fixture

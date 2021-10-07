@@ -63,8 +63,7 @@ class Fiber(Data):
     poisson: float
 
 
-@dataclass
-class BaseLamina(abc.ABC, Data):
+class Lamina(abc.ABC):
     @property
     def limit_strain(self):
         return np.array([self.max_strain_x, self.max_strain_xy])
@@ -88,7 +87,7 @@ class BaseLamina(abc.ABC, Data):
 
 
 @dataclass
-class Lamina(BaseLamina):
+class LaminaMonolith(Lamina, Data):
     """Single lamina externally defiened properties"""
 
     name: str
@@ -103,32 +102,8 @@ class Lamina(BaseLamina):
     max_strain_xy: float
 
 
-def lamina_factory(
-    fibers,
-    matrices,
-    fiber_type: str,
-    matrix_type: str,
-    f_mass_cont: float,
-    f_area_density: float,
-    max_strain_x: float,
-    max_strain_xy: float,
-    name="",
-    cloth_type: str = "woven",
-):
-    table = {"woven": Lamina_parts_woven, "csm": Lamina_parts_csm}
-    return table[cloth_type](
-        fibers[fiber_type],
-        matrices[matrix_type],
-        f_mass_cont,
-        f_area_density,
-        max_strain_x,
-        max_strain_xy,
-        name,
-    )
-
-
 @dataclass
-class Lamina_parts_woven(BaseLamina):
+class LaminaPartsWoven(Lamina):
     """Single lamina made of woven cloth - prop caculated from fiber and
     matrix, in accordance to C3.8.2 Elasto-mechanical properties
     of laminated structures.
@@ -197,7 +172,7 @@ class Lamina_parts_woven(BaseLamina):
 
 
 @dataclass
-class Lamina_parts_csm(Lamina_parts_woven):
+class LaminaPartsCSM(LaminaPartsWoven):
     """Lamina made of chopped stranded mat prop caculated from fiber and
     matrix, in accordance to C3.8.2 Elasto-mechanical properties
     of laminated structures
@@ -247,7 +222,7 @@ class Ply:
     """single ply material elastic and physical properties.
     orientation - degrees"""
 
-    material: BaseLamina
+    material: Lamina
     orientation: float
 
     @property
@@ -708,8 +683,3 @@ class SandwichLaminate(ABCLaminate):
     @property
     def skins(self):
         return [self.outter_laminate, self.inner_laminate]
-
-
-def laminate_factory(lam_type, **input_param):
-    table = {"single skin": SingleSkinLaminate, "sandwich": SandwichLaminate}
-    return table[lam_type](**input_param)

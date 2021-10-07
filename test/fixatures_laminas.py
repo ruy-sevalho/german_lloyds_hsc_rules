@@ -6,15 +6,73 @@
 
 import pytest as pt
 
-from gl_hsc_scantling import Lamina_parts_woven, Lamina_parts_csm, Lamina
+from gl_hsc_scantling.shortcut import (
+    LaminaPartsWoven,
+    LaminaPartsCSM,
+    LaminaMonolith,
+    Lamina,
+    lamina_constructor,
+)
 from .exp_output import ExpPly
 from .fixatures_fibers import *
 from .fixatures_matrices import *
 
 
+laminas_inputs = [
+    (
+        {
+            "name": "E_glass_poly_70_304",
+            "fiber": "eglass_gl",
+            "matrix": "polyester_gl",
+            "f_mass_cont": 0.7,
+            "f_area_density": 0.304,
+            "max_strain_x": 0.035,
+            "max_strain_xy": 0.007,
+        },
+        ExpPly(
+            0.000228256467942,
+            39704119.8501873,
+            9814079.99527406,
+            4058669.26991943,
+            0.244689138576779,
+            0.059409655355304,
+            "E_glass_poly_70_304",
+        ),
+    ),
+    (
+        {
+            "modulus_x": 14336000,
+            "modulus_y": 39248000,
+            "modulus_xy": 4530000,
+            "poisson_xy": 0.09,
+            "thickness": 0.000228,
+            "f_mass_cont": 0.7,
+            "f_area_density": 0.304,
+            "max_strain_x": 0.035,
+            "max_strain_xy": 0.07,
+            "name": "et_0900",
+        },
+        None,
+    ),
+]
+
+
+@pt.fixture(params=laminas_inputs)
+def lamina(fibers, matrices, request) -> Lamina:
+    return (lamina_constructor(fibers, matrices, request.param[0]), request.param[1])
+
+
+@pt.fixture
+def laminas(fibers, matrices, laminates_inputs):
+    return {
+        lam["name"]: lamina_constructor(fibers, matrices, **lam)
+        for lam in laminates_inputs
+    }
+
+
 @pt.fixture
 def E_glass_poly_70_304(eglass_gl, polyester_gl):
-    return Lamina_parts_woven(
+    return LaminaPartsWoven(
         name="E_glass_poly_70_304",
         fiber=eglass_gl,
         matrix=polyester_gl,
@@ -40,7 +98,7 @@ def E_glass_poly_70_304_expected():
 
 @pt.fixture
 def E_glass_poly_50_304(eglass_gl, polyester_gl):
-    return Lamina_parts_woven(
+    return LaminaPartsWoven(
         name="E_glass_poly_50_304",
         fiber=eglass_gl,
         matrix=polyester_gl,
@@ -66,7 +124,7 @@ def E_glass_poly_50_304_expected():
 
 @pt.fixture
 def E_glass_poly_30_304(eglass_gl, polyester_gl):
-    return Lamina_parts_woven(
+    return LaminaPartsWoven(
         name="E_glass_poly_30_304",
         fiber=eglass_gl,
         matrix=polyester_gl,
@@ -108,4 +166,4 @@ def et_0900_input():
 
 @pt.fixture
 def et_0900(et_0900_input):
-    return Lamina(**et_0900_input)
+    return LaminaMonolith(**et_0900_input)
