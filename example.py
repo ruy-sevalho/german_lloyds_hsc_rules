@@ -35,12 +35,34 @@ vessel = Vessel(
     z_baseline=-0.51,
     block_coef=0.4,
     water_plane_area=10,
-    lcg=6,
+    lcg=4,
     deadrise_lcg=12,
     dist_hull_cl=4.6,
     type_of_service="PASSENGER",
     service_range="USR",
 )
+
+vessel2 = Vessel(
+    **{
+        "name": "catamaran",
+        "service_range": "USR",
+        "type_of_service": "PASSENGER",
+        "speed": 15,
+        "displacement": 6,
+        "length": 10,
+        "beam": 6.5,
+        "fwd_perp": 10,
+        "aft_perp": 0,
+        "draft": 0.51,
+        "z_baseline": -0.51,
+        "block_coef": 0.4,
+        "water_plane_area": 10,
+        "lcg": 4,
+        "deadrise_lcg": 12,
+        "dist_hull_cl": 4.6,
+    }
+)
+
 polyester = Matrix(
     name="polyester", density=1200, modulus_x=3000000, modulus_xy=1140000, poisson=0.316
 )
@@ -194,5 +216,4 @@ panel_input = {
 }
 exp_panel = {"pressures": {"sea": 17.6875}}
 panel_from_constructor = panel_element_constructor(vessel, laminates, **panel_input)
-
-print(panel_from_constructor.pressures)
+print(f"tbm {vessel.transverse_torsional_moment}")

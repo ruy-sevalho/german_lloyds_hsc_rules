@@ -4,12 +4,13 @@
  # @ Description:
  """
 import pytest as pt
-from gl_hsc_scantling.vessel import Vessel
+from gl_hsc_scantling.shortcut import Vessel
 from .exp_output import ExpVessel
 
 
 @pt.fixture
 def vessel_input_ex1():
+    """Test vessel 01"""
     return {
         "name": "catamaran",
         "service_range": "USR",
@@ -24,7 +25,7 @@ def vessel_input_ex1():
         "z_baseline": -0.51,
         "block_coef": 0.4,
         "water_plane_area": 10,
-        "lcg": 6,
+        "lcg": 4,
         "deadrise_lcg": 12,
         "dist_hull_cl": 4.6,
     }
@@ -41,9 +42,9 @@ def vessel_ex1_expected():
         **{
             "vert_acg": 1,
             "max_wave_height": 1.424449396,
-            "sig_wave_height": 0.407610082404517,
-            "transverse_bending_moment": 54.14568,
-            "transverse_shear_force": 14.7135,
-            "transverse_torsional_moment": 73.5675,
+            "sig_wave_height": 0.407531163657313,
+            "transverse_bending_moment": 54.1512,
+            "transverse_shear_force": 14.715,
+            "transverse_torsional_moment": 73.575,
         }
     )

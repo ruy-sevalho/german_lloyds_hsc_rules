@@ -13,7 +13,7 @@ from pylatex import NoEscape, Quantity
 from .dc import dataclass
 from marshmallow import Schema, fields
 
-from .constants import gravity
+from .constants import GRAVITY
 from .report import (
     NamePrint,
     _print_wrapper_builder,
@@ -185,10 +185,6 @@ class Vessel(Data):
     def sp_len_ratio(self):
         return self.speed / self.length ** 0.5
 
-    # @property
-    # def froude_n(self):
-    #     return self.speed / self.length ** 0.5
-
     # C3.3.1
     @property
     def vert_acg(self):
@@ -201,17 +197,17 @@ class Vessel(Data):
     # C3.4.2.3
     @property
     def transverse_bending_moment(self):
-        return self.displacement * self.dist_hull_cl * self.vert_acg * gravity / 5
+        return self.displacement * self.dist_hull_cl * self.vert_acg * GRAVITY / 5
 
     # C3.4.2.3
     @property
-    def shear_force(self):
-        return self.displacement * self.vert_acg * gravity / 4
+    def transverse_shear_force(self):
+        return self.displacement * self.vert_acg * GRAVITY / 4
 
     # C3.4.2.4
     @property
     def transverse_torsional_moment(self):
-        return 0.125 * self.displacement * self.length * self.vert_acg * gravity
+        return 0.125 * self.displacement * self.length * self.vert_acg * GRAVITY
 
     @property
     def loads_names(self):
@@ -231,9 +227,10 @@ class Vessel(Data):
         """C3.3.3 Assessment of limit operating conditions"""
         return (
             5
-            * np.min([self.vert_acg, 1])
+            * np.max([self.vert_acg, 1])
+            / self.speed
             * self.length ** 1.5
-            / (self.sp_len_ratio * (6 + 0.14 * self.length))
+            / (6 + 0.14 * self.length)
         )
 
     @property
@@ -243,11 +240,11 @@ class Vessel(Data):
 
     @property
     def coef_kcat(self):
-        return np.min([1 + (self.dist_hull_cl - self.max_wave_height) / self.length, 1])
+        return np.max([1 + (self.dist_hull_cl - self.max_wave_height) / self.length, 1])
 
     @property
     def coef_kf(self):
-        return 3.23 * (2.43 * self.length ** 0.5 + self.speed)
+        return 3.23 / self.length * (2.43 * self.length ** 0.5 + self.speed)
 
     @property
     def coef_kt(self):
@@ -257,7 +254,7 @@ class Vessel(Data):
 
     @property
     def coef_k(self):
-        return self.coef_kf / self.coef_kf
+        return self.coef_kf / self.coef_kt
 
     @property
     def coef_kh(self):

@@ -166,7 +166,7 @@ def panel_side_01_exp():
 @pt.fixture
 def panel_wet_deck_01(et_0900_20x, vessel_ex1):
     panel = Panel(dim_x=1, dim_y=1, laminate=et_0900_20x)
-    wet_deck = WetDeck(deadrise=17, air_gap=1)
+    wet_deck = WetDeck(deadrise=16)
     return StructuralElement(
         name="Wet Deck Panel 01",
         x=8,
@@ -181,7 +181,7 @@ def panel_wet_deck_01(et_0900_20x, vessel_ex1):
 def panel_wet_deck_01_exp():
     return ExpPanel(
         name="Wet Deck Panel 01",
-        pressures={"sea": 17.6875, "impact": 23.7413793103448},
+        pressures={"sea": 17.6875, "impact": 18.5076000849556},
     )
 
 

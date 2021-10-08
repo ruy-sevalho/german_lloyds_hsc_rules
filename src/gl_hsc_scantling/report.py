@@ -36,7 +36,7 @@ def _print_wrapper_builder(value, **metadata):
         return PrintWrapper(value, metadata["names"])
 
 
-def _data_to_dict(obj, names: List[str], metadata: dict = METADATA):
+def _data_to_dict(obj, names: list[str], metadata: dict = METADATA):
     # metadata.update({"name": {"names": NamePrint("Name", "Name")}})
     return {
         name: _print_wrapper_builder(getattr(obj, name), **metadata[name])
@@ -71,14 +71,14 @@ class Data:
             if isinstance(getattr(self, attr), Data)
         ]
 
-    @property
-    def _plucked_asdict(self):
-        schema = self.Schema()
-        f = schema.fields
-        for attr in self._plucked_attr:
-            f.update({attr: fields.Pluck("self", "name")})
-        updated_schema = Schema.from_dict(f)()
-        return updated_schema.dump(self)
+    # @property
+    # def _plucked_asdict(self):
+    #     schema = self.Schema()
+    #     f = schema.fields
+    #     for attr in self._plucked_attr:
+    #         f.update({attr: fields.Pluck("self", "name")})
+    #     updated_schema = Schema.from_dict(f)()
+    #     return updated_schema.dump(self)
 
 
 # @dataclass

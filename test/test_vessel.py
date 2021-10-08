@@ -8,6 +8,7 @@ import pytest as pt
 
 
 def test_vessel_ex1(vessel_ex1, vessel_ex1_expected):
+    """Global loads check."""
     assert vessel_ex1.vert_acg == pt.approx(vessel_ex1_expected.vert_acg)
     assert vessel_ex1.max_wave_height == pt.approx(vessel_ex1_expected.max_wave_height)
     assert vessel_ex1.sig_wave_height == pt.approx(vessel_ex1_expected.sig_wave_height)
@@ -18,5 +19,5 @@ def test_vessel_ex1(vessel_ex1, vessel_ex1_expected):
         vessel_ex1_expected.transverse_shear_force
     )
     assert vessel_ex1.transverse_torsional_moment == pt.approx(
-        vessel_ex1_expected.vert_acg
+        vessel_ex1_expected.transverse_torsional_moment
     )
