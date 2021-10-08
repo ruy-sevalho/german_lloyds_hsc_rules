@@ -197,16 +197,19 @@ class Vessel(Data):
     # C3.4.2.3
     @property
     def transverse_bending_moment(self):
+        """Transverse bending moment in kN*m."""
         return self.displacement * self.dist_hull_cl * self.vert_acg * GRAVITY / 5
 
     # C3.4.2.3
     @property
     def transverse_shear_force(self):
+        """Transverse shear force in kN."""
         return self.displacement * self.vert_acg * GRAVITY / 4
 
     # C3.4.2.4
     @property
     def transverse_torsional_moment(self):
+        """Transverse torsional moment in kN*m."""
         return 0.125 * self.displacement * self.length * self.vert_acg * GRAVITY
 
     @property
@@ -238,24 +241,29 @@ class Vessel(Data):
         """C3.3.3.2 Limitation imposed by vertical acceleration at LCG"""
         return 10.9 * self.vert_acg * self.coef_kcat * self.coef_kh / self.coef_kf ** 2
 
+    # C3.3.3.2
     @property
     def coef_kcat(self):
         return np.max([1 + (self.dist_hull_cl - self.max_wave_height) / self.length, 1])
 
+    # C3.3.3.2
     @property
     def coef_kf(self):
         return 3.23 / self.length * (2.43 * self.length ** 0.5 + self.speed)
 
+    # C3.3.3.2
     @property
     def coef_kt(self):
         return (
             4.6 * self.water_plane_area / self.displacement * (self.x_pos_cg) ** 0.5
         ) ** 0.5
 
+    # C3.3.3.2
     @property
     def coef_k(self):
         return self.coef_kf / self.coef_kt
 
+    # C3.3.3.2
     @property
     def coef_kh(self):
         return self.coef_k ** 0.35 * ((1 / self.coef_k ** 2 - 0.11) ** 2 + 1) ** 0.5
