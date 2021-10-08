@@ -371,10 +371,6 @@ class Impact(Pressure):
         )
 
     def _pressure_impact(self, elmt):
-        print(f"psl: {self._pressure_impact_pre(elmt)}")
-        print(f"_x_lim: {self._x_lim(elmt)}")
-        print(f"pressure_impact_limit: {self._pressure_impact_limit(elmt)}")
-        print(f"pressure_sea_lim: {self._pressure_sea_limit(elmt)}")
         return _pressure_impact_f(
             x_pos=elmt.x_pos,
             x_lim=self._x_lim(elmt),
@@ -440,10 +436,6 @@ class ImpactWetDeck(Impact):
         )
 
     def _pressure_impact_pre(self, elmt):
-        print(f"Kwd: {self._coef_kwd(elmt)}")
-        print(f"K2: {self._coef_k2(elmt)}")
-        print(f"K3: {self._coef_k3(elmt)}")
-        print(f"wave: {elmt.vessel.sig_wave_height}")
         return _pressure_impact_wet_deck_pre_f(
             speed=elmt.vessel.speed,
             sig_wave_height=elmt.vessel.sig_wave_height,
