@@ -94,14 +94,12 @@ def _x_lim_f(vert_acg, x_lim_Froude_n_min, x_lim_Froude_n_max):
 
 def _x_lim_sp_len_ratio_min_f(
     sp_len_ratio,
-    min_acg_froude_limit_inf,
-    min_acg_froude_limit_sup,
     x_lim_min_acg_inf,
     x_lim_min_acg_sup,
 ):
-    if sp_len_ratio < min_acg_froude_limit_inf:
+    if sp_len_ratio < 4.5:
         return x_lim_min_acg_inf
-    elif sp_len_ratio <= min_acg_froude_limit_sup:
+    elif sp_len_ratio <= 5:
         return x_lim_min_acg_sup
     else:
         return 0
@@ -109,14 +107,9 @@ def _x_lim_sp_len_ratio_min_f(
 
 def _x_lim_sp_len_ratio_max_f(
     sp_len_ratio,
-    max_acg_froude_limit_inf,
-    max_acg_froude_limit,
-    x_lim_max_acg_inf,
     x_lim_max_acg,
 ):
-    if sp_len_ratio < max_acg_froude_limit_inf:
-        return x_lim_max_acg_inf
-    elif sp_len_ratio <= max_acg_froude_limit:
+    if sp_len_ratio < 5:
         return x_lim_max_acg
     else:
         return 0
@@ -313,11 +306,6 @@ class Impact(Pressure):
     sea_pressure = Sea()
     _coef_k2_min_table = {Panel: 0.5, Stiffener: 0.45}
 
-    # Table C3.5.1
-    _min_acg_froude_limit_inf = 4.5
-    _min_acg_froude_limit_sup = 5
-    _max_acg_froude_limit = 5
-
     def calc(self, elmt) -> float:
         return self._pressure_impact(elmt)
 
@@ -331,8 +319,6 @@ class Impact(Pressure):
     def _x_lim_sp_len_ratio_min(self, elmt) -> float:
         return _x_lim_sp_len_ratio_min_f(
             sp_len_ratio=elmt.vessel.sp_len_ratio,
-            min_acg_froude_limit_inf=self._min_acg_froude_limit_inf,
-            min_acg_froude_limit_sup=self._min_acg_froude_limit_sup,
             x_lim_min_acg_inf=self._x_lim_min_acg_inf,
             x_lim_min_acg_sup=self._x_lim_min_acg_sup,
         )
@@ -340,9 +326,6 @@ class Impact(Pressure):
     def _x_lim_sp_len_ratio_max(self, elmt) -> float:
         return _x_lim_sp_len_ratio_max_f(
             sp_len_ratio=elmt.vessel.sp_len_ratio,
-            max_acg_froude_limit_inf=self._min_acg_froude_limit_inf,
-            max_acg_froude_limit=self._max_acg_froude_limit,
-            x_lim_max_acg_inf=self._x_lim_min_acg_inf,
             x_lim_max_acg=self._x_lim_max_acg,
         )
 
