@@ -1,5 +1,6 @@
 from dataclasses import fields
 from typing import Any
+from .vessel import Vessel
 from .composites import (
     ABCLaminate,
     Lamina,
@@ -114,26 +115,26 @@ def stiffener_element_constructor(
     return Stiffener(**inputs)
 
 
-def structural_element_constructor(
-    vessel,
-    laminates: dict[str:ABCLaminate],
-    stiffeners_sections: dict[str:StiffinerSection],
-    **kwargs,
-) -> StructuralElement:
-    table = {
-        "panel": (panel_constructor, [laminates]),
-        "stiffener": (stiffener_element_constructor, [laminates, stiffeners_sections]),
-    }
-    location = location_constructor(**kwargs)
-    model_type = table[kwargs["element type"].lower()]
-    model = model_type[0](*model_type[1], **kwargs)
-    inputs = input_extractor(StructuralElement, kwargs)
-    inputs.update({"vessel": vessel, "location": location, "model": model})
-    return StructuralElement(**inputs)
+# def structural_element_constructor(
+#     vessel: Vessel,
+#     laminates: dict[str:ABCLaminate],
+#     stiffeners_sections: dict[str:StiffinerSection],
+#     **kwargs,
+# ) -> StructuralElement:
+#     table = {
+#         "panel": (panel_constructor, [laminates]),
+#         "stiffener": (stiffener_element_constructor, [laminates, stiffeners_sections]),
+#     }
+#     location = location_constructor(**kwargs)
+#     model_type = table[kwargs["element type"].lower()]
+#     model = model_type[0](*model_type[1], **kwargs)
+#     inputs = input_extractor(StructuralElement, kwargs)
+#     inputs.update({"vessel": vessel, "location": location, "model": model})
+#     return StructuralElement(**inputs)
 
 
 def panel_element_constructor(
-    vessel,
+    vessel: Vessel,
     laminates: dict[str:ABCLaminate],
     **kwargs,
 ) -> StructuralElement:

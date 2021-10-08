@@ -12,8 +12,9 @@ from .exp_output import ExpPanel
 
 
 def panel_pressure_check(panel: StructuralElement, exp: ExpPanel):
-    for p_type, p_value in exp.pressures.items():
-        assert panel.pressures[p_type] == pt.approx(p_value)
+    assert panel.pressures == pt.approx(exp.pressures)
+    # for p_type, p_value in exp.pressures.items():
+    #     assert panel.pressures[p_type] == pt.approx(p_value)
 
 
 def test_panel_bottom_01(panel_bottom_01, panel_bottom_01_exp):

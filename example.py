@@ -179,32 +179,28 @@ bottom = Bottom(deadrise=16)
 #     model=panel,
 #     location=bottom,
 # )
-side_panel = StructuralElement(
-    name="Side Panel 01",
-    x=8,
-    z=0.2,
-    vessel=vessel,
-    model=panel,
-    location=Side(),
-)
+# side_panel = StructuralElement(
+#     name="Side Panel 01",
+#     x=8,
+#     z=0.2,
+#     vessel=vessel,
+#     model=panel,
+#     location=Side(),
+# )
 
-side_panel = StructuralElement(
-    name="Side Panel 01",
-    x=6.5,
-    z=0.2,
-    vessel=vessel,
-    model=panel,
-    location=Side(),
-)
-
-keys = [field.name for field in fields(Panel)]
-print(f"Panel keys {keys}")
-
+# side_panel = StructuralElement(
+#     name="Side Panel 01",
+#     x=6.5,
+#     z=0.2,
+#     vessel=vessel,
+#     model=panel,
+#     location=Side(),
+# )
 laminates = {"et_0900_20x": et_0900_20x}
 
 panel_input = {
     "name": "Wet Deck Panel 02",
-    "x": 9.5,
+    "x": 6.5,
     "z": 0.2,
     "element type": "panel",
     "dim_x": 1,
@@ -212,8 +208,8 @@ panel_input = {
     "laminate": "et_0900_20x",
     "location": "wet deck",
     "deadrise": 16,
-    "air_gap": 1,
+    "air_gap": 0.2,
 }
 exp_panel = {"pressures": {"sea": 17.6875}}
-panel_from_constructor = panel_element_constructor(vessel, laminates, **panel_input)
-print(f"tbm {vessel.transverse_torsional_moment}")
+panel = panel_element_constructor(vessel, laminates, **panel_input)
+print(f"pressures: {panel.pressures}")
