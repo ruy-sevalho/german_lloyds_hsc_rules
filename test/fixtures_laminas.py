@@ -14,8 +14,7 @@ from gl_hsc_scantling.shortcut import (
     lamina_constructor,
 )
 from .exp_output import ExpPly
-from .fixatures_fibers import *
-from .fixatures_matrices import *
+from .fixtures_laminates import *
 
 
 laminas_inputs = [

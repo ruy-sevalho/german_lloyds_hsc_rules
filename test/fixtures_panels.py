@@ -12,13 +12,10 @@ from gl_hsc_scantling.shortcut import (
     StructuralElement,
     Bottom,
     Side,
-    WetDeck,
-    Vessel,
-    panel_constructor,
 )
 
-from .fixatures_vessel import *
-from .fixatures_laminates import *
+from .fixtures_vessel import *
+from .fixtures_laminates import *
 
 from .exp_output import ExpPanel
 

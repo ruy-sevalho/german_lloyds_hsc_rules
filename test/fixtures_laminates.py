@@ -11,7 +11,7 @@ import pytest as pt
 from gl_hsc_scantling.composites import SingleSkinLaminate, SandwichLaminate, Ply
 
 from .exp_output import ExpLaminate
-from .fixatures_laminas import *
+from .fixtures_laminas import *
 
 
 def build_sub_matrix(
@@ -65,12 +65,6 @@ def et_0900_20x_exp():
 @pt.fixture
 def et_0900_20x_45deg_input(et_0900):
     orientation = [45, -45]
-    return [Ply(material=et_0900, orientation=ang) for ang in orientation] * 10
-
-
-@pt.fixture
-def et_0900_20x_input(et_0900):
-    orientation = [0, 90]
     return [Ply(material=et_0900, orientation=ang) for ang in orientation] * 10
 
 
@@ -158,10 +152,3 @@ def sandwich_laminate_exp():
     D = build_sub_matrix(D11, D12, D16, D22, D26, D66)
     stiff_m = build_ABD_matrix(A, B, D)
     return ExpLaminate(thickness=0.02456, stiff_m=stiff_m, name="sandwich_laminate")
-
-
-@pt.fixture
-def laminates(
-    sandwich_laminate, sandwich_laminate_skin, et_0900_20x_45deg, et_0900_20x
-):
-    lam = [sandwich_laminate, sandwich_laminate_skin, et_0900_20x_45deg, et_0900_20x]
