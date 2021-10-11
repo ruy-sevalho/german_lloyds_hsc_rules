@@ -6,3 +6,4 @@ src/gl_hsc_scantling.egg-info/
 src/gl_hsc_scantling/__pycache__/
 .pytest_cache/
 src/__pycache__/
+.coverage
