@@ -51,3 +51,16 @@ def test_panel_wet_deck_02(panel_wet_deck_02, panel_wet_deck_02_exp):
 
 def test_panel_wet_deck_01(panel_wet_deck_01, panel_wet_deck_01_exp):
     panel_pressure_check(panel_wet_deck_01, panel_wet_deck_01_exp)
+
+
+# Save
+def test_panel_deck_01(panel_deck_01, panel_deck_01_exp):
+    panel_pressure_check(panel_deck_01, panel_deck_01_exp)
+
+
+def test_panel_deck_02(panel_deck_02, panel_deck_02_exp):
+    panel_pressure_check(panel_deck_02, panel_deck_02_exp)
+
+
+def test_panel_deck_03(panel_deck_03, panel_deck_03_exp):
+    panel_pressure_check(panel_deck_03, panel_deck_03_exp)

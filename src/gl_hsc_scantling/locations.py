@@ -459,6 +459,8 @@ class DeckPressure(Pressure):
 class DeckHouse(Pressure):
     """C3.5.5.5 Sea pressures on deckhouses."""
 
+    name = "deckhouse"
+
     def calc(self, elmt):
         return self._pressure_walls(elmt)
 
@@ -486,21 +488,21 @@ class DeckHouse(Pressure):
 
 
 class DeckHouseMainFront(DeckHouse):
-    name = "deck_house_main_front"
+    name = "deckhouse main front"
 
     def _pressure_walls_min(self, elmt):
         return _pressure_walls_min_f(length=elmt.vessel.lenght)
 
 
 class DeckHouseMainSide(DeckHouse):
-    name = "deck_house_main_side"
+    name = "deckhouse main side"
 
     def _pressure_walls_min(self, elmt):
         return 4
 
 
 class DeckHouseOther(DeckHouse):
-    name = "deck_house_other"
+    name = "deckhouse other"
 
     def _pressure_walls_min(self, elmt):
         return 3

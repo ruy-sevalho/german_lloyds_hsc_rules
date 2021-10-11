@@ -220,3 +220,78 @@ def panel_wet_deck_02_exp():
     return ExpPanel(
         name="Wet Deck Panel 02", pressures={"sea": 16.53125, "impact": 12.952671921744}
     )
+
+
+@pt.fixture
+def panel_deck_01_input():
+    return {
+        "name": "Deck Panel 01",
+        "x": 8,
+        "z": 0.5,
+        "element type": "panel",
+        "dim_x": 1,
+        "dim_y": 1,
+        "laminate": "et_0900_20x",
+        "location": "deck",
+    }
+
+
+@pt.fixture
+def panel_deck_01(vessel_ex1, et_0900_20x, panel_deck_01_input):
+    laminates = {et_0900_20x.name: et_0900_20x}
+    return panel_element_constructor(vessel_ex1, laminates, **panel_deck_01_input)
+
+
+@pt.fixture
+def panel_deck_01_exp():
+    return ExpPanel(name="Deck Panel 01", pressures={"deck": 6})
+
+
+@pt.fixture
+def panel_deck_02_input():
+    return {
+        "name": "Deck Panel 02",
+        "x": 8,
+        "z": 2.5,
+        "element type": "panel",
+        "dim_x": 1,
+        "dim_y": 1,
+        "laminate": "et_0900_20x",
+        "location": "deck",
+    }
+
+
+@pt.fixture
+def panel_deck_02(vessel_ex1, et_0900_20x, panel_deck_02_input):
+    laminates = {et_0900_20x.name: et_0900_20x}
+    return panel_element_constructor(vessel_ex1, laminates, **panel_deck_02_input)
+
+
+@pt.fixture
+def panel_deck_02_exp():
+    return ExpPanel(name="Deck Panel 02", pressures={"deck": 4.5})
+
+
+@pt.fixture
+def panel_deck_03_input():
+    return {
+        "name": "Deck Panel 03",
+        "x": 8,
+        "z": 4,
+        "element type": "panel",
+        "dim_x": 1,
+        "dim_y": 1,
+        "laminate": "et_0900_20x",
+        "location": "deck",
+    }
+
+
+@pt.fixture
+def panel_deck_03(vessel_ex1, et_0900_20x, panel_deck_03_input):
+    laminates = {et_0900_20x.name: et_0900_20x}
+    return panel_element_constructor(vessel_ex1, laminates, **panel_deck_03_input)
+
+
+@pt.fixture
+def panel_deck_03_exp():
+    return ExpPanel(name="Deck Panel 03", pressures={"deck": 3})
