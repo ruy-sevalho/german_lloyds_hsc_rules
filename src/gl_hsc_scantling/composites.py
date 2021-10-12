@@ -4,7 +4,7 @@ Created on Thu Aug  6 11:49:36 2020
 
 @author: ruy
 """
-import abc
+
 from functools import cache
 from abc import ABC, abstractproperty
 from enum import Enum, auto
@@ -63,7 +63,12 @@ class Fiber(Data):
     poisson: float
 
 
-class Lamina(abc.ABC):
+class Lamina(ABC):
+    thickness: float
+    modulus_x: float
+    modulus_y: float
+    modulus_xy: float
+
     @property
     def limit_strain(self):
         return np.array([self.max_strain_x, self.max_strain_xy])
@@ -230,13 +235,25 @@ class Ply:
         return self.material.thickness
 
     @property
-    def modulus_(self):
+    def modulus(self):
         return np.array(
             [
                 1 / (self.material.thickness * self.single_ABD_matrix_inv[i][i])
                 for i in range(3)
             ]
         )
+
+    @property
+    def modulus_x(self):
+        return self.modulus[0]
+
+    @property
+    def modulus_y(self):
+        return self.modulus[1]
+
+    @property
+    def modulus_xy(self):
+        return self.modulus[2]
 
     @property
     def rotation_matrix(self):
@@ -327,6 +344,10 @@ class PlyPositioned:
     z_coord: Tuple[float, float]
 
     @property
+    def modulus(self):
+        return self.ply.modulus
+
+    @property
     def material(self):
         return self.ply.material
 
@@ -358,15 +379,15 @@ class ABCLaminate(Data, ABC):
         }
 
     @property
-    def thick_array(self):
+    def thick_array(self) -> float:
         return np.array([ply.thickness for ply in self.plies_unpositioned])
 
     @property
-    def thickness(self):
+    def thickness(self) -> float:
         return np.sum(self.thick_array)
 
     @property
-    def z_mid(self):
+    def z_mid(self) -> float:
         return self.thickness / 2
 
     @property
@@ -375,7 +396,7 @@ class ABCLaminate(Data, ABC):
         return np.array([[z_, z_ + z] for z_, z in zip(z0, self.thick_array)])
 
     @abstractproperty
-    def plies():
+    def plies() -> list[PlyPositioned]:
         """Must place plies in z correct position. Sandwich laminates plies list
         does not include core. It just affects ply z coordinates.
         """
@@ -431,7 +452,7 @@ class ABCLaminate(Data, ABC):
     def modulus_simp(self):
         return np.array(
             [
-                np.sum([ply.modulus_[i] * ply.material.thickness for ply in self.plies])
+                np.sum([ply.modulus[i] * ply.material.thickness for ply in self.plies])
                 / self.thickness_eff
                 for i in range(3)
             ]
@@ -460,7 +481,7 @@ class ABCLaminate(Data, ABC):
             [
                 np.sum(
                     [
-                        ply.modulus_[i]
+                        ply.modulus[i]
                         * (
                             ply.material.thickness ** 3 / 12
                             + ply.material.thickness * np.average(ply.z_coord) ** 2
@@ -478,7 +499,7 @@ class ABCLaminate(Data, ABC):
         sum_Ets = [0, 0]
         for i in range(2):
             for ply in self.plies:
-                Et = ply.modulus_[i] * ply.material.thickness
+                Et = ply.modulus[i] * ply.material.thickness
                 sum_Ets[i] += Et
                 sum_Etzs[i] += Et * np.average(ply.z_coord)
         return np.array(
@@ -492,7 +513,7 @@ class ABCLaminate(Data, ABC):
         z0 = -self.thickness / 2
         for i in range(2):
             for ply in self.plies:
-                Et = ply.modulus_[i] * ply.material.thickness
+                Et = ply.modulus[i] * ply.material.thickness
                 sum_Ets[i] += Et
                 sum_Etzs[i] += Et * (np.average(ply.z_coord) - z0)
         return np.array(
@@ -604,22 +625,6 @@ class ABCLaminate(Data, ABC):
     def print_out_matrices(self, *args):
         args = ("default", *args)
         return {arg: self.print_out_matrix(arg) for arg in args}
-
-    @property
-    def print_out_resume(self):
-        return {
-            "Ex (GPa)": self.modulus[0] / 10 ** 6,
-            "Ey (GPa)": self.modulus[1] / 10 ** 6,
-            "Gxy (GPa)": self.modulus[2] / 10 ** 6,
-            "EIx(s) (kNm)": self.bend_stiff_simp[0],
-            "EIy(s) (kNm)": self.bend_stiff_simp[1],
-            "EIx (kNm)": self.bend_stiff[0],
-            "EIy (kNm)": self.bend_stiff[1],
-            "thickness (mm)": self.thickness * 1000,
-            "f mass cont": self.f_area_weight / self.total_area_weight,
-            "f weight (g/m2)": self.f_area_weight * 1000,
-            "t weight (g/m2)": self.total_area_weight * 1000,
-        }
 
 
 @dataclass
