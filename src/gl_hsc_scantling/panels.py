@@ -154,23 +154,21 @@ class Panel(StructuralModel):
         ratio = np.min([0.1, np.max([0.03, self.curvature / self.span])])
         return 1.15 - 5 * ratio
 
-    @property
-    def max_bend_moment(self):
+    def max_bend_moment(self, pressure: float):
         """C3.8.3.3.1"""
 
         return (
             self.panel_coef("beta")
-            * self.design_pressure
+            * pressure
             * self.span ** 2
             * self.curve_correction
             / 6
         )
 
-    @property
-    def max_shear_force(self):
+    def max_shear_force(self, pressure: float):
         """C3.8.3.3.2"""
 
-        return self.panel_coef("gamma") * self.design_pressure * self.span
+        return self.panel_coef("gamma") * pressure * self.span
 
     @property
     def max_lateral_deflection(self):
