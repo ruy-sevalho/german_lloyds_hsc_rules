@@ -3,7 +3,7 @@ from gl_hsc_scantling.shortcut import stiffener_section_constructor, LBar
 from .fixtures_laminates import *
 from .exp_output import ExpStiffenerSection
 
-
+# Comment
 @pt.fixture
 def lbar_01_input():
     return {
@@ -28,4 +28,5 @@ def lbar_01_exp():
         bend_stiffness_NA=1.70253506207197,
         z_NA=0.0368412726626162,
         web_shear_stiffness=2707.26407307194,
+        stiffness=5647.45173312655,
     )

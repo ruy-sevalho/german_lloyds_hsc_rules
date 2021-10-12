@@ -93,11 +93,12 @@ def stiffener_section_constructor(
     laminates: dict[str:ABCLaminate], **kwargs
 ) -> StiffenerSection:
     table = {
-        "lbar": LBar,
+        "lbar": (LBar, {"laminate_web": laminates, "laminate_flange": laminates}),
     }
-    stiffener_section = table[kwargs["section_profile"].lower()]
-    inputs = input_extractor(stiffener_section, kwargs)
-    return stiffener_section(**inputs)
+    constructor_param = table[kwargs["section_profile"].lower()]
+    inputs = input_extractor(constructor_param[0], kwargs)
+    inputs = value_substitution(inputs, constructor_param[1])
+    return constructor_param[0](**inputs)
 
 
 def stiffener_att_plate_section_constructor(

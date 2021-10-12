@@ -211,13 +211,21 @@ panel_input = {
     "deadrise": 16,
     "air_gap": 0.2,
 }
+
 panel = panel_element_constructor(vessel, laminates, **panel_input)
+print("Whole section:")
 print(f"bend stiff: {lbar.bend_stiff()}")
 print(f"bend stiff base: {lbar.bend_stiff_bottom()}")
 print(f"zna: {lbar.z_center()}")
-print(f"shear stiff: {lbar.shear_stiff}")
-for i, elmt in enumerate(lbar.elmts):
-    print(f"elmt: {i}")
-    print(f"z: {elmt.anchor_pt}")
-    print(f"Ex: {elmt.sect_elmt.material.modulus_x}")
-    print(f"bend stiff{elmt.sect_elmt.bend_stiff()}")
+print(f"stiff: {lbar.stiff}")
+# print(f"shear stiff: {lbar.shear_stiff}")
+# print(f"z limits: {lbar.z_limits()}")
+# print(f"EAz: {lbar._sum_stiff_z()}")
+# print("------------")
+# print("By element:")
+# for i, elmt in enumerate(lbar.elmts):
+#     print(f"elmt: {i}")
+#     print(f"z: {elmt.anchor_pt}")
+#     print(f"Ex: {elmt.sect_elmt.material.modulus_x}")
+#     print(f"bend stiff{elmt.sect_elmt.bend_stiff()}")
+#     print(f"z limits: {elmt.sect_elmt.z_limits()}")

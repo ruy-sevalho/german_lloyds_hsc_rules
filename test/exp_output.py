@@ -32,6 +32,7 @@ class ExpStiffenerSection:
     bend_stiffness_NA: float
     z_NA: float
     web_shear_stiffness: float
+    stiffness: float
 
 
 @dataclass

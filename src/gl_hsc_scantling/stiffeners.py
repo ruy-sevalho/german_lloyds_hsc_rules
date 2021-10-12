@@ -34,7 +34,7 @@ def _coord_transform(position: Point2D, angle: float) -> float:
     cos = np.cos(rad)
     z1 = sin * position.y
     z2 = cos * position.z
-    return z1
+    return z1 + z2
 
 
 @dataclass
@@ -44,17 +44,17 @@ class SectionElement(abc.ABC):
     """
 
     @abc.abstractmethod
-    def bend_stiff(self, angle=0):
+    def bend_stiff(self, angle=0) -> float:
         """Bending stiffness E*I (kPa*m4)"""
         pass
 
     @abc.abstractproperty
-    def stiff(self):
+    def stiff(self) -> float:
         """Extensional stiffness E*A (kPa*m²)."""
         pass
 
     @abc.abstractproperty
-    def shear_stiff(self):
+    def shear_stiff(self) -> float:
         """Shear stiffness G*A (kPa*m²)"""
         pass
 
@@ -64,7 +64,7 @@ class SectionElement(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def z_center(self, angle=0):
+    def z_center(self, angle=0) -> float:
         """z coordinate of element's centroid (m)."""
         pass
 
@@ -73,24 +73,24 @@ class HomogeneousSectionElement(SectionElement):
     material: ABCLaminate
 
     @abc.abstractproperty
-    def area(self):
+    def area(self) -> float:
         """Area (m²)."""
         pass
 
     @abc.abstractmethod
-    def inertia(self, angle=0):
+    def inertia(self, angle=0) -> float:
         """Area moment of inertia - I (m4)."""
         pass
 
-    def bend_stiff(self, angle=0):
+    def bend_stiff(self, angle=0) -> float:
         return self.inertia(angle) * self.material.modulus_x
 
     @property
-    def stiff(self):
+    def stiff(self) -> float:
         return self.area * self.material.modulus_x
 
     @property
-    def shear_stiff(self):
+    def shear_stiff(self) -> float:
         return self.area * self.material.modulus_xy
 
 
@@ -170,13 +170,13 @@ class Elmt:
     """Section elemented positioned in a stiffener profile."""
 
     sect_elmt: SectionElement
-    anchor_pt: Point2D = Point2D(0, 0)
+    anchor_pt: Point2D = Point2D(y=0, z=0)
     angle: float = 0
     web: bool = False
 
 
 class StiffenerSection(SectionElement):
-    """Stiff section composed of other stiff sections"""
+    """Stiffener section composed of other stiffeners sections."""
 
     elmts: list[Elmt]
 
@@ -187,10 +187,18 @@ class StiffenerSection(SectionElement):
     def z_limits(self, angle=0):
         return Z_limits(
             np.min(
-                [elmt.sect_elmt.z_limits(angle + elmt.angle)[0] for elmt in self.elmts]
+                [
+                    elmt.sect_elmt.z_limits(angle + elmt.angle).inf
+                    + _coord_transform(elmt.anchor_pt, angle)
+                    for elmt in self.elmts
+                ]
             ),
             np.max(
-                [elmt.sect_elmt.z_limits(angle + elmt.angle)[1] for elmt in self.elmts]
+                [
+                    elmt.sect_elmt.z_limits(angle + elmt.angle).sup
+                    + _coord_transform(elmt.anchor_pt, angle)
+                    for elmt in self.elmts
+                ]
             ),
         )
 
@@ -203,13 +211,13 @@ class StiffenerSection(SectionElement):
             elmt.anchor_pt, angle
         )
 
-    def sum_stiff_z(self, angle=0):
+    def _sum_stiff_z(self, angle=0):
         return np.sum(
-            [elmt.sect_elmt * self.z_elmt(elmt, angle) for elmt in self.elmts]
+            [elmt.sect_elmt.stiff * self.z_elmt(elmt, angle) for elmt in self.elmts]
         )
 
     def z_center(self, angle=0):
-        return self.sum_stiff_z(angle) / self.stiff
+        return self._sum_stiff_z(angle) / self.stiff
 
     def bend_stiff_bottom(self, angle=0):
         return np.sum(
