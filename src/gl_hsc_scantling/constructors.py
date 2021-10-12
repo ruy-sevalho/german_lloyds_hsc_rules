@@ -24,7 +24,7 @@ from .locations import (
 )
 from .stiffeners import (
     LBar,
-    StiffinerSection,
+    StiffenerSection,
     Stiffener,
 )
 from .elements import StructuralElement
@@ -91,7 +91,7 @@ def location_constructor(**kwargs) -> Location:
 
 def stiffener_section_constructor(
     laminates: dict[str:ABCLaminate], **kwargs
-) -> StiffinerSection:
+) -> StiffenerSection:
     table = {
         "lbar": LBar,
     }
@@ -102,7 +102,7 @@ def stiffener_section_constructor(
 
 def stiffener_att_plate_section_constructor(
     laminates: dict[str:ABCLaminate],
-    stiffeners_sections: dict[str:StiffinerSection],
+    stiffeners_sections: dict[str:StiffenerSection],
     **kwargs,
 ) -> Stiffener:
     inputs = input_extractor(Stiffener, kwargs)
@@ -130,7 +130,7 @@ def panel_element_constructor(
 def stiffener_element_constructor(
     vessel,
     laminates: dict[str:ABCLaminate],
-    stiffeners_sections: dict[str:StiffinerSection],
+    stiffeners_sections: dict[str:StiffenerSection],
     **kwargs,
 ) -> StructuralElement:
     location = location_constructor(**kwargs)
@@ -145,7 +145,7 @@ def stiffener_element_constructor(
 def structural_element_constructor(
     vessel: Vessel,
     laminates: dict[str:ABCLaminate],
-    stiffeners_sections: dict[str:StiffinerSection],
+    stiffeners_sections: dict[str:StiffenerSection],
     **kwargs,
 ) -> StructuralElement:
     table = {

@@ -15,8 +15,11 @@ from .structural_model import StructuralModel, BoundaryCondition
 from .vessel import Vessel
 from .composites import SingleSkinLaminate, SandwichLaminate, ABCLaminate
 
-# Point2D = namedtuple("Point2D", "y z")
-Z_limits = namedtuple("Z_limits", "inf sup")
+
+@dataclass
+class Z_limits:
+    inf: float
+    sup: float
 
 
 @dataclass
@@ -25,7 +28,7 @@ class Point2D:
     z: float
 
 
-def coord_transform(position: Point2D, angle: float) -> float:
+def _coord_transform(position: Point2D, angle: float) -> float:
     rad = np.radians(angle)
     sin = np.sin(rad)
     cos = np.cos(rad)
@@ -42,40 +45,53 @@ class SectionElement(abc.ABC):
 
     @abc.abstractmethod
     def bend_stiff(self, angle=0):
+        """Bending stiffness E*I (kPa*m4)"""
+        pass
+
+    @abc.abstractproperty
+    def stiff(self):
+        """Extensional stiffness E*A (kPa*m²)."""
         pass
 
     @abc.abstractproperty
     def shear_stiff(self):
+        """Shear stiffness G*A (kPa*m²)"""
         pass
 
     @abc.abstractmethod
-    def z_limits(self, angle=0):
+    def z_limits(self, angle=0) -> Z_limits:
+        """z coordinate of element's lower and upper boundries (m)."""
         pass
 
     @abc.abstractmethod
     def z_center(self, angle=0):
+        """z coordinate of element's centroid (m)."""
         pass
 
 
 class HomogeneousSectionElement(SectionElement):
+    material: ABCLaminate
+
     @abc.abstractproperty
     def area(self):
+        """Area (m²)."""
         pass
 
     @abc.abstractmethod
     def inertia(self, angle=0):
+        """Area moment of inertia - I (m4)."""
         pass
 
     def bend_stiff(self, angle=0):
         return self.inertia(angle) * self.material.modulus_x
 
     @property
-    def shear_stiff(self):
-        return self.area * self.material.modulus_xy
-
-    @property
     def stiff(self):
         return self.area * self.material.modulus_x
+
+    @property
+    def shear_stiff(self):
+        return self.area * self.material.modulus_xy
 
 
 @dataclass
@@ -84,14 +100,14 @@ class RectSectionElement(HomogeneousSectionElement):
     dimension: float
 
     @abc.abstractproperty
-    def height():
+    def height() -> float:
         pass
 
     @abc.abstractproperty
-    def width():
+    def width() -> float:
         pass
 
-    def z_corners(self, angle=0):
+    def _z_corners(self, angle=0):
         rad = np.radians(angle)
         sin = np.sin(rad)
         cos = np.cos(rad)
@@ -101,16 +117,16 @@ class RectSectionElement(HomogeneousSectionElement):
         return np.array([0, z2, z3, z4])
 
     def z_limits(self, angle=0):
-        return Z_limits(np.min(self.z_corners(angle)), np.max(self.z_corners(angle)))
+        return Z_limits(np.min(self._z_corners(angle)), np.max(self._z_corners(angle)))
 
-    def z_center(self, angle=0):
-        return np.average(self.z_corners(angle))
+    def z_center(self, angle=0) -> float:
+        return np.average(self._z_corners(angle))
 
     @property
-    def area(self):
+    def area(self) -> float:
         return self.height * self.width
 
-    def inertia(self, angle=0):
+    def inertia(self, angle=0) -> float:
         rad = np.radians(angle)
         sin = np.sin(rad)
         cos = np.cos(rad)
@@ -123,11 +139,11 @@ class RectSectionElement(HomogeneousSectionElement):
 
 class SectionElmtRectVert(RectSectionElement):
     @property
-    def height(self):
+    def height(self) -> float:
         return self.dimension
 
     @property
-    def width(self):
+    def width(self) -> float:
         return self.material.thickness
 
 
@@ -159,48 +175,41 @@ class Elmt:
     web: bool = False
 
 
-class StiffinerSection(SectionElement):
-    """Stiffener profile section."""
+class StiffenerSection(SectionElement):
+    """Stiff section composed of other stiff sections"""
+
+    elmts: list[Elmt]
 
     @property
-    def web(self):
+    def web(self) -> SectionElement:
         return filter(lambda elmt: elmt.web, self.elmts)
 
     def z_limits(self, angle=0):
-        # z_limits = [elmt.sect_elmt.z_limits(angle + elmt.angle) for elmt in self.elmts]
-        return np.array(
-            [
-                np.min(
-                    [
-                        elmt.sect_elmt.z_limits(angle + elmt.angle)[0]
-                        for elmt in self.elmts
-                    ]
-                ),
-                np.max(
-                    [
-                        elmt.sect_elmt.z_limits(angle + elmt.angle)[1]
-                        for elmt in self.elmts
-                    ]
-                ),
-            ]
+        return Z_limits(
+            np.min(
+                [elmt.sect_elmt.z_limits(angle + elmt.angle)[0] for elmt in self.elmts]
+            ),
+            np.max(
+                [elmt.sect_elmt.z_limits(angle + elmt.angle)[1] for elmt in self.elmts]
+            ),
         )
 
     @property
     def stiff(self):
         return np.sum([elmt.sect_elmt.stiff for elmt in self.elmts])
 
-    def z_elmt(self, elmt, angle=0):
-        return elmt.sect_elmt.z_center(angle + elmt.angle) + coord_transform(
+    def z_elmt(self, elmt: Elmt, angle=0):
+        return elmt.sect_elmt.z_center(angle + elmt.angle) + _coord_transform(
             elmt.anchor_pt, angle
         )
 
-    def sum_stiffz(self, angle=0):
+    def sum_stiff_z(self, angle=0):
         return np.sum(
-            [elmt.sect_elmt.stiff * self.z_elmt(elmt, angle) for elmt in self.elmts]
+            [elmt.sect_elmt * self.z_elmt(elmt, angle) for elmt in self.elmts]
         )
 
     def z_center(self, angle=0):
-        return self.sum_stiffz(angle) / self.stiff
+        return self.sum_stiff_z(angle) / self.stiff
 
     def bend_stiff_bottom(self, angle=0):
         return np.sum(
@@ -220,8 +229,8 @@ class StiffinerSection(SectionElement):
 
 
 @dataclass
-class LBar(StiffinerSection):
-    """L bar profile - composed of a web and a flange."""
+class LBar(StiffenerSection):
+    """L bar profile - composed of a web and a flange. Dimensions in m."""
 
     name: str
     laminate_web: ABCLaminate
@@ -230,12 +239,12 @@ class LBar(StiffinerSection):
     dimension_flange: float
 
     @property
-    def elmts(self):
+    def elmts(self) -> list[Elmt]:
         elmts = [
             Elmt(SectionElmtRectVert(self.laminate_web, self.dimension_web), web=True),
             Elmt(
                 SectionElmtRectHoriz(self.laminate_flange, self.dimension_flange),
-                anchor_pt=(0, self.dimension_web),
+                anchor_pt=Point2D(0, self.dimension_web),
             ),
         ]
         return elmts
@@ -253,7 +262,7 @@ def stiff_section_factory(sect_type, laminates, **definition):
 
 
 @dataclass
-class AttPlateSandwich(StiffinerSection):
+class AttPlateSandwich(StiffenerSection):
     """Sandwich attached plate section."""
 
     dimension: float
@@ -270,7 +279,7 @@ class AttPlateSandwich(StiffinerSection):
 
 
 @dataclass
-class AttPlateSingleSkin(StiffinerSection):
+class AttPlateSingleSkin(StiffenerSection):
     """Single Skin attached plate section."""
 
     dimension: float
@@ -281,13 +290,6 @@ class AttPlateSingleSkin(StiffinerSection):
         return [Elmt(SectionElmtRectHoriz(self.laminate, self.dimension))]
 
 
-@dataclass
-class ComposedSection(StiffinerSection):
-    """Stiff section composed of other stiff sections"""
-
-    elmts: List[SectionElement]
-
-
 def att_plate_section_factory(lam_type):
     table = {SingleSkinLaminate: AttPlateSingleSkin, SandwichLaminate: AttPlateSandwich}
     return table[lam_type]
@@ -295,16 +297,18 @@ def att_plate_section_factory(lam_type):
 
 @dataclass
 class Stiffener(StructuralModel):
-    """ """
+    """Stiffener beam model, in accordance to C3.8.2.6 and C3.8.4,
+    including a stiffener profile section and attached plates. Dimensions im m.
+    """
 
-    stiff_section: StiffinerSection
+    stiff_section: StiffenerSection
     span: float
     spacing_1: float
     spacing_2: float
     stiff_att_plate: int
-    stiff_att_angle: float
     att_plate_1: ABCLaminate
     att_plate_2: ABCLaminate
+    stiff_att_angle: float = 0
     bound_cond: BoundaryCondition = BoundaryCondition.FIXED
 
     @property
@@ -350,7 +354,7 @@ class Stiffener(StructuralModel):
 
     @property
     def stiff_section_att_plate(self):
-        return ComposedSection(
+        return StiffenerSection(
             [
                 Elmt(att_plate_section_factory(type(laminate))(laminate, dimension))
                 for laminate, dimension in zip(self.att_plates_lam, self.eff_widths)

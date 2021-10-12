@@ -22,6 +22,7 @@ from gl_hsc_scantling.shortcut import (
     panel_constructor,
     panel_element_constructor,
 )
+from test.fixtures_laminates import et_0900_20x_45deg
 
 vessel = Vessel(
     name="catamaran",
@@ -141,7 +142,7 @@ lbar = LBar(
     laminate_web=et_0900_20x_45,
     dimension_web=0.05,
     laminate_flange=et_0900_20x,
-    dimension_flange=0.05,
+    dimension_flange=0.02,
 )
 stiffener = Stiffener(
     stiff_section=lbar,
@@ -210,6 +211,13 @@ panel_input = {
     "deadrise": 16,
     "air_gap": 0.2,
 }
-exp_panel = {"pressures": {"sea": 17.6875}}
 panel = panel_element_constructor(vessel, laminates, **panel_input)
-print(f"pressures: {panel.pressures}")
+print(f"bend stiff: {lbar.bend_stiff()}")
+print(f"bend stiff base: {lbar.bend_stiff_bottom()}")
+print(f"zna: {lbar.z_center()}")
+print(f"shear stiff: {lbar.shear_stiff}")
+for i, elmt in enumerate(lbar.elmts):
+    print(f"elmt: {i}")
+    print(f"z: {elmt.anchor_pt}")
+    print(f"Ex: {elmt.sect_elmt.material.modulus_x}")
+    print(f"bend stiff{elmt.sect_elmt.bend_stiff()}")

@@ -21,33 +21,13 @@ from gl_hsc_scantling.composites import (
 )
 from gl_hsc_scantling.vessel import Vessel
 from gl_hsc_scantling.stiffeners import LBar, Stiffener
-from .exp_output import ExpPly, ExpLaminate, ExpStiffSection
+from .exp_output import ExpPly, ExpLaminate, ExpStiffenerSection
 
-from .fixatures_vessel import *
-from .fixatures_matrices import *
-from .fixatures_fibers import *
-from .fixatures_laminas import *
-from .fixatures_cores import *
-from .fixatures_laminates import *
-from .fixatures_panels import *
-
-
-@pt.fixture
-def l_bar_input(et_0900_20x_45deg, et_0900_20x):
-    return {
-        "laminate_web": et_0900_20x_45deg,
-        "dimension_web": 0.1,
-        "laminate_flange": et_0900_20x,
-        "dimension_flange": 0.02,
-        "name": "l_bar",
-    }
-
-
-@pt.fixture
-def l_bar(l_bar_input):
-    return LBar(**l_bar_input)
-
-
-@pt.fixture
-def l_bar_exp():
-    return ExpStiffSection("l_bar")
+from .fixtures_vessel import *
+from .fixtures_matrices import *
+from .fixtures_fibers import *
+from .fixtures_laminas import *
+from .fixtures_cores import *
+from .fixtures_laminates import *
+from .fixtures_panels import *
+from .fixtures_stiffeners_sections import *

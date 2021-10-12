@@ -26,12 +26,12 @@ ExpLaminate = namedtuple("ExpLaminate", ["thickness", "stiff_m", "name"], defaul
 
 ExpCore = namedtuple("ExpCore", ["thickness", "name"])
 
-ExpStiffSection = namedtuple(
-    "ExpStiffSection",
-    [
-        "name",
-    ],
-)
+
+@dataclass
+class ExpStiffenerSection:
+    bend_stiffness_NA: float
+    z_NA: float
+    web_shear_stiffness: float
 
 
 @dataclass

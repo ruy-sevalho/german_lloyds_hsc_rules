@@ -25,7 +25,7 @@ from .locations import (
     DeckHouseMainSide,
     DeckHouseOther,
 )
-from .stiffeners import Stiffener, LBar
+from .stiffeners import Stiffener, StiffenerSection, LBar
 from .constructors import (
     panel_constructor,
     panel_element_constructor,
