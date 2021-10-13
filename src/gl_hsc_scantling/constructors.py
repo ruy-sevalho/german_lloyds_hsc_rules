@@ -95,10 +95,10 @@ def stiffener_section_constructor(
     table = {
         "lbar": (LBar, {"laminate_web": laminates, "laminate_flange": laminates}),
     }
-    constructor_param = table[kwargs["section_profile"].lower()]
-    inputs = input_extractor(constructor_param[0], kwargs)
-    inputs = value_substitution(inputs, constructor_param[1])
-    return constructor_param[0](**inputs)
+    stiffener_section, name_dict_pairs = table[kwargs["section_profile"].lower()]
+    inputs = input_extractor(stiffener_section, kwargs)
+    inputs = value_substitution(inputs, name_dict_pairs)
+    return stiffener_section(**inputs)
 
 
 def stiffener_att_plate_section_constructor(
@@ -110,7 +110,7 @@ def stiffener_att_plate_section_constructor(
     name_dict_pairs = {
         "att_plate_1": laminates,
         "att_plate_2": laminates,
-        "stiffener_section": stiffeners_sections,
+        "stiff_section": stiffeners_sections,
     }
     inputs = value_substitution(inputs, name_dict_pairs)
     return Stiffener(**inputs)
@@ -135,10 +135,10 @@ def stiffener_element_constructor(
     **kwargs,
 ) -> StructuralElement:
     location = location_constructor(**kwargs)
-    inputs = input_extractor(StructuralElement, kwargs)
     model = stiffener_att_plate_section_constructor(
         laminates, stiffeners_sections, **kwargs
     )
+    inputs = input_extractor(StructuralElement, kwargs)
     inputs.update({"vessel": vessel, "location": location, "model": model})
     return StructuralElement(**inputs)
 

@@ -1,5 +1,5 @@
 import pytest as pt
-from gl_hsc_scantling.shortcut import stiffener_section_constructor, LBar
+from gl_hsc_scantling.shortcut import stiffener_section_constructor
 from .fixtures_laminates import *
 from .exp_output import ExpStiffenerSection
 
@@ -7,7 +7,7 @@ from .exp_output import ExpStiffenerSection
 @pt.fixture
 def lbar_01_input():
     return {
-        "name": "lbar 01",
+        "name": "lbar_01",
         "section_profile": "lbar",
         "laminate_web": "et_0900_20x_45deg",
         "dimension_web": 0.05,

@@ -176,12 +176,16 @@ class Elmt:
 
 
 class StiffenerSection(SectionElement):
-    """Stiffener section composed of other stiffeners sections."""
+    """Stiffener section composed of stiffeners sections elements."""
 
     elmts: list[Elmt]
 
+    @abc.abstractproperty
+    def foot_width(self) -> float:
+        """Width of the foot (base) of the section"""
+
     @property
-    def web(self) -> SectionElement:
+    def web(self) -> list[Elmt]:
         return filter(lambda elmt: elmt.web, self.elmts)
 
     def z_limits(self, angle=0):
@@ -206,30 +210,30 @@ class StiffenerSection(SectionElement):
     def stiff(self):
         return np.sum([elmt.sect_elmt.stiff for elmt in self.elmts])
 
-    def z_elmt(self, elmt: Elmt, angle=0):
+    def _z_elmt(self, elmt: Elmt, angle=0) -> float:
         return elmt.sect_elmt.z_center(angle + elmt.angle) + _coord_transform(
             elmt.anchor_pt, angle
         )
 
     def _sum_stiff_z(self, angle=0):
         return np.sum(
-            [elmt.sect_elmt.stiff * self.z_elmt(elmt, angle) for elmt in self.elmts]
+            [elmt.sect_elmt.stiff * self._z_elmt(elmt, angle) for elmt in self.elmts]
         )
 
     def z_center(self, angle=0):
         return self._sum_stiff_z(angle) / self.stiff
 
-    def bend_stiff_bottom(self, angle=0):
+    def _bend_stiff_bottom(self, angle=0):
         return np.sum(
             [
                 elmt.sect_elmt.bend_stiff(angle)
-                + (elmt.sect_elmt.stiff * self.z_elmt(elmt, angle) ** 2)
+                + (elmt.sect_elmt.stiff * self._z_elmt(elmt, angle) ** 2)
                 for elmt in self.elmts
             ]
         )
 
     def bend_stiff(self, angle=0):
-        return self.bend_stiff_bottom(angle) - self.z_center(angle) ** 2 * self.stiff
+        return self._bend_stiff_bottom(angle) - self.z_center(angle) ** 2 * self.stiff
 
     @property
     def shear_stiff(self):
@@ -247,7 +251,7 @@ class LBar(StiffenerSection):
     dimension_flange: float
 
     @property
-    def elmts(self) -> list[Elmt]:
+    def elmts(self) -> list[SectionElmtRectVert, SectionElmtRectHoriz]:
         elmts = [
             Elmt(SectionElmtRectVert(self.laminate_web, self.dimension_web), web=True),
             Elmt(
@@ -258,7 +262,7 @@ class LBar(StiffenerSection):
         return elmts
 
     @property
-    def foot_width(self):
+    def foot_width(self) -> float:
         return self.elmts[0].sect_elmt.width
 
 
@@ -307,6 +311,14 @@ def att_plate_section_factory(lam_type):
 class Stiffener(StructuralModel):
     """Stiffener beam model, in accordance to C3.8.2.6 and C3.8.4,
     including a stiffener profile section and attached plates. Dimensions im m.
+    spacing_1 and spacing_2 refer to distance from stiffener to center of the
+    unsupported plates on each side.
+
+    |_______________|___________________________|
+
+            -------- -------------
+
+            spacing_1  spacing_2
     """
 
     stiff_section: StiffenerSection
@@ -340,7 +352,7 @@ class Stiffener(StructuralModel):
         xp = list(range(10))
         fp = [0, 0.36, 0.64, 0.82, 0.91, 0.96, 0.98, 0.993, 0.998, 1]
         weffs = [
-            np.interp(self.length_bet_mom / self.spacing, xp, fp) * spacing
+            np.interp(self.length_bet_mom / (2 * self.spacing), xp, fp) * spacing
             for spacing in self.spacings
         ]
         # since att plates are numbered 1 and 2, but storing list index starts at 0

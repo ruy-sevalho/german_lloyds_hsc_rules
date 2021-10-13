@@ -224,8 +224,9 @@ class Core(Data):
 
 @dataclass
 class Ply:
-    """single ply material elastic and physical properties.
-    orientation - degrees"""
+    """Single ply material elastic and physical properties.
+    orientation - degrees.
+    """
 
     material: Lamina
     orientation: float

@@ -30,4 +30,5 @@ from .fixtures_laminas import *
 from .fixtures_cores import *
 from .fixtures_laminates import *
 from .fixtures_panels import *
-from .fixtures_stiffeners_sections import *
+from .fixtures_stiffener_sections import *
+from .fixtures_stiffener_elements import *

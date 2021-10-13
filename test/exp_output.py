@@ -36,6 +36,12 @@ class ExpStiffenerSection:
 
 
 @dataclass
+class ExpStiffenerElement:
+    stiffener_section: ExpStiffenerSection
+    pressures: dict[str, float]
+
+
+@dataclass
 class ExpPanel:
     name: str
     pressures: dict[str, float]
