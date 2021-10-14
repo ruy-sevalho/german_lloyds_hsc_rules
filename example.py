@@ -18,9 +18,9 @@ from gl_hsc_scantling.shortcut import (
     WetDeck,
     Stiffener,
     LBar,
-    location_constructor,
-    panel_constructor,
     panel_element_constructor,
+    stiffener_section_constructor,
+    stiffener_element_constructor,
 )
 from test.fixtures_laminates import et_0900_20x_45deg
 
@@ -138,7 +138,7 @@ bottom = Bottom(deadrise=20)
 #     name="Bottom Panel", x=5, z=-0.3, vessel=vessel, model=panel, location=bottom
 # )
 lbar = LBar(
-    name="L bar",
+    name="lbar_01",
     laminate_web=et_0900_20x_45,
     dimension_web=0.05,
     laminate_flange=et_0900_20x,
@@ -197,7 +197,8 @@ bottom = Bottom(deadrise=16)
 #     model=panel,
 #     location=Side(),
 # )
-laminates = {"et_0900_20x": et_0900_20x}
+laminates = {lam.name: lam for lam in [et_0900_20x, et_0900_20x_45]}
+stiff_sections = {section.name: section for section in [lbar]}
 
 panel_input = {
     "name": "Wet Deck Panel 02",
@@ -211,21 +212,29 @@ panel_input = {
     "deadrise": 16,
     "air_gap": 0.2,
 }
+stiffener_element_input = {
+    "name": "Bottom Stiffener 01",
+    "x": 8,
+    "z": -0.3,
+    "element type": "panel",
+    "span": 1,
+    "spacing_1": 0.4,
+    "spacing_2": 0.4,
+    "stiff_att_plate": 1,
+    "att_plate_1": "et_0900_20x",
+    "att_plate_2": "et_0900_20x",
+    "stiff_section": "lbar_01",
+    "location": "bottom",
+    "deadrise": 16,
+}
+
+stiffener_element = stiffener_element_constructor(
+    vessel, laminates, stiff_sections, **stiffener_element_input
+)
 
 panel = panel_element_constructor(vessel, laminates, **panel_input)
-print("Whole section:")
-print(f"bend stiff: {lbar.bend_stiff()}")
-print(f"bend stiff base: {lbar.bend_stiff_bottom()}")
-print(f"zna: {lbar.z_center()}")
-print(f"stiff: {lbar.stiff}")
-# print(f"shear stiff: {lbar.shear_stiff}")
-# print(f"z limits: {lbar.z_limits()}")
-# print(f"EAz: {lbar._sum_stiff_z()}")
-# print("------------")
-# print("By element:")
-# for i, elmt in enumerate(lbar.elmts):
-#     print(f"elmt: {i}")
-#     print(f"z: {elmt.anchor_pt}")
-#     print(f"Ex: {elmt.sect_elmt.material.modulus_x}")
-#     print(f"bend stiff{elmt.sect_elmt.bend_stiff()}")
-#     print(f"z limits: {elmt.sect_elmt.z_limits()}")
+print(f"Bend stiff: {stiffener_element.model.stiff_section_att_plate.bend_stiff()}")
+print(f"stiff: {stiffener_element.model.stiff_section_att_plate.stiff}")
+print(f"z_na: {stiffener_element.model.stiff_section_att_plate.z_center()}")
+print(f"web stiff: {stiffener_element.model.stiff_section_att_plate.shear_stiff}")
+print(f"thick: {et_0900_20x.thickness}")

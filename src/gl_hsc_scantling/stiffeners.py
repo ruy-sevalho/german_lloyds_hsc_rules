@@ -180,10 +180,6 @@ class StiffenerSection(SectionElement):
 
     elmts: list[Elmt]
 
-    @abc.abstractproperty
-    def foot_width(self) -> float:
-        """Width of the foot (base) of the section"""
-
     @property
     def web(self) -> list[Elmt]:
         return filter(lambda elmt: elmt.web, self.elmts)
@@ -277,8 +273,8 @@ def stiff_section_factory(sect_type, laminates, **definition):
 class AttPlateSandwich(StiffenerSection):
     """Sandwich attached plate section."""
 
-    dimension: float
     laminate: ABCLaminate
+    dimension: float
 
     @property
     def elmts(self):
@@ -294,15 +290,21 @@ class AttPlateSandwich(StiffenerSection):
 class AttPlateSingleSkin(StiffenerSection):
     """Single Skin attached plate section."""
 
-    dimension: float
     laminate: ABCLaminate
+    dimension: float
 
     @property
     def elmts(self):
         return [Elmt(SectionElmtRectHoriz(self.laminate, self.dimension))]
 
 
-def att_plate_section_factory(lam_type):
+@dataclass
+class ComposedStiffenerSection(StiffenerSection):
+
+    elmts: list[SectionElement]
+
+
+def att_plate_section_factory(lam_type) -> StiffenerSection:
     table = {SingleSkinLaminate: AttPlateSingleSkin, SandwichLaminate: AttPlateSandwich}
     return table[lam_type]
 
@@ -313,12 +315,6 @@ class Stiffener(StructuralModel):
     including a stiffener profile section and attached plates. Dimensions im m.
     spacing_1 and spacing_2 refer to distance from stiffener to center of the
     unsupported plates on each side.
-
-    |_______________|___________________________|
-
-            -------- -------------
-
-            spacing_1  spacing_2
     """
 
     stiff_section: StiffenerSection
@@ -348,11 +344,17 @@ class Stiffener(StructuralModel):
         return [self.att_plate_1, self.att_plate_2]
 
     @property
-    def eff_widths(self):
+    def eff_widths(self) -> list[float]:
+        spacings = self.spacings
         xp = list(range(10))
         fp = [0, 0.36, 0.64, 0.82, 0.91, 0.96, 0.98, 0.993, 0.998, 1]
+        aux = [
+            np.interp(self.length_bet_mom / (2 * self.spacing), xp, fp)
+            for spacing in self.spacings
+        ]
+        value = self.length_bet_mom / (2 * self.spacing)
         weffs = [
-            np.interp(self.length_bet_mom / (2 * self.spacing), xp, fp) * spacing
+            np.interp(self.length_bet_mom / (2 * spacing), xp, fp) * spacing
             for spacing in self.spacings
         ]
         # since att plates are numbered 1 and 2, but storing list index starts at 0
@@ -374,20 +376,22 @@ class Stiffener(StructuralModel):
 
     @property
     def stiff_section_att_plate(self):
-        return StiffenerSection(
-            [
-                Elmt(att_plate_section_factory(type(laminate))(laminate, dimension))
-                for laminate, dimension in zip(self.att_plates_lam, self.eff_widths)
-            ]
-            + [
-                Elmt(
-                    self.stiff_section,
-                    anchor_pt=(
-                        0,
-                        self.att_plates_lam[self.stiff_att_plate - 1].thickness,
-                    ),
-                    angle=self.stiff_att_angle,
-                    web=True,
-                )
-            ]
+        return ComposedStiffenerSection(
+            (
+                [
+                    Elmt(att_plate_section_factory(type(laminate))(laminate, dimension))
+                    for laminate, dimension in zip(self.att_plates_lam, self.eff_widths)
+                ]
+                + [
+                    Elmt(
+                        self.stiff_section,
+                        anchor_pt=Point2D(
+                            0,
+                            self.att_plates_lam[self.stiff_att_plate - 1].thickness,
+                        ),
+                        angle=self.stiff_att_angle,
+                        web=True,
+                    )
+                ]
+            )
         )

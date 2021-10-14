@@ -38,7 +38,10 @@ def stiffener_bottom_01(et_0900_20x, lbar_01, vessel_ex1, stiffener_bottom_01_in
 def stiffener_bottom_01_exp():
     return ExpStiffenerElement(
         stiffener_section=ExpStiffenerSection(
-            bend_stiffness_NA=0, z_NA=0, web_shear_stiffness=0, stiffness=0
+            bend_stiffness_NA=8.33124543714909,
+            z_NA=0.0115411623450635,
+            web_shear_stiffness=2707.26407307195,
+            stiffness=23856.1306743935,
         ),
         pressures={"sea": 18.46875, "impact": 21.3672413793103},
     )
