@@ -345,18 +345,10 @@ class Stiffener(StructuralModel):
 
     @property
     def eff_widths(self) -> list[float]:
-        spacings = self.spacings
         xp = list(range(10))
         fp = [0, 0.36, 0.64, 0.82, 0.91, 0.96, 0.98, 0.993, 0.998, 1]
-        aux = [
-            np.interp(self.length_bet_mom / (2 * self.spacing), xp, fp)
-            for spacing in self.spacings
-        ]
-        value = self.length_bet_mom / (2 * self.spacing)
-        weffs = [
-            np.interp(self.length_bet_mom / (2 * spacing), xp, fp) * spacing
-            for spacing in self.spacings
-        ]
+        weff = np.interp(self.length_bet_mom / (self.spacing), xp, fp) * self.spacing
+        weffs = [spacing / self.spacing * weff for spacing in self.spacings]
         # since att plates are numbered 1 and 2, but storing list index starts at 0
         index = (
             self.stiff_att_plate - 1
