@@ -30,14 +30,14 @@ from .stiffeners import (
 from .elements import StructuralElement
 
 
-def input_extractor(data_class, inputs: dict[str:Any]) -> dict[str:Any]:
+def input_extractor(data_class, inputs: dict[str, Any]) -> dict[str, Any]:
     keys = [field.name for field in fields(data_class)]
     extracted_inputs = {key: inputs[key] for key in keys if key in inputs.keys()}
     return extracted_inputs
 
 
 def value_substitution(
-    inputs: dict[str:Any], name_dict_pairs: dict[str : dict[str:Any]]
+    inputs: dict[str, Any], name_dict_pairs: dict[str, dict[str, Any]]
 ):
     for key, dict_of_values in name_dict_pairs.items():
         inputs.update({key: dict_of_values[inputs[key]]})
@@ -45,10 +45,10 @@ def value_substitution(
 
 
 def lamina_constructor(
-    fibers: dict[str:Fiber], matrices: dict[str:Matrix], **kwargs
+    fibers: dict[str, Fiber], matrices: dict[str, Matrix], **kwargs
 ) -> Lamina:
     def parts_lamina_constructor(
-        fibers: dict[str:Fiber], matrices: dict[str:Matrix], **kwargs
+        fibers: dict[str, Fiber], matrices: dict[str, Matrix], **kwargs
     ) -> Lamina:
         table = {"woven": LaminaPartsWoven, "csm": LaminaPartsCSM}
         lamina = table[kwargs["cloth"]]
@@ -66,7 +66,7 @@ def lamina_constructor(
     return constructor(fibers=fibers, matrices=matrices, **kwargs)
 
 
-def panel_constructor(laminates: dict[str:ABCLaminate], **kwargs) -> Panel:
+def panel_constructor(laminates: dict[str, ABCLaminate], **kwargs) -> Panel:
     inputs = input_extractor(Panel, kwargs)
     name_dict_pairs = {"laminate": laminates}
     inputs = value_substitution(inputs, name_dict_pairs)
@@ -90,7 +90,7 @@ def location_constructor(**kwargs) -> Location:
 
 
 def stiffener_section_constructor(
-    laminates: dict[str:ABCLaminate], **kwargs
+    laminates: dict[str, ABCLaminate], **kwargs
 ) -> StiffenerSection:
     table = {
         "lbar": (LBar, {"laminate_web": laminates, "laminate_flange": laminates}),
@@ -102,7 +102,7 @@ def stiffener_section_constructor(
 
 
 def stiffener_att_plate_section_constructor(
-    laminates: dict[str:ABCLaminate],
+    laminates: dict[str, ABCLaminate],
     stiffeners_sections: dict[str:StiffenerSection],
     **kwargs,
 ) -> Stiffener:
@@ -118,7 +118,7 @@ def stiffener_att_plate_section_constructor(
 
 def panel_element_constructor(
     vessel: Vessel,
-    laminates: dict[str:ABCLaminate],
+    laminates: dict[str, ABCLaminate],
     **kwargs,
 ) -> StructuralElement:
     location = location_constructor(**kwargs)
@@ -130,8 +130,8 @@ def panel_element_constructor(
 
 def stiffener_element_constructor(
     vessel,
-    laminates: dict[str:ABCLaminate],
-    stiffeners_sections: dict[str:StiffenerSection],
+    laminates: dict[str, ABCLaminate],
+    stiffeners_sections: dict[str, StiffenerSection],
     **kwargs,
 ) -> StructuralElement:
     location = location_constructor(**kwargs)
@@ -145,8 +145,8 @@ def stiffener_element_constructor(
 
 def structural_element_constructor(
     vessel: Vessel,
-    laminates: dict[str:ABCLaminate],
-    stiffeners_sections: dict[str:StiffenerSection],
+    laminates: dict[str, ABCLaminate],
+    stiffeners_sections: dict[str, StiffenerSection],
     **kwargs,
 ) -> StructuralElement:
     table = {
