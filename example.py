@@ -231,10 +231,37 @@ stiffener_element_input = {
 stiffener_element = stiffener_element_constructor(
     vessel, laminates, stiff_sections, **stiffener_element_input
 )
+stiffener_element_side_01_input = {
+    "name": "Side Stiffener 01",
+    "x": 4,
+    "z": 0.5,
+    "element_type": "stiffener",
+    "span": 1,
+    "spacing_1": 0.4,
+    "spacing_2": 0.4,
+    "stiff_att_plate": 1,
+    "stiff_att_angle": 20,
+    "att_plate_1": "et_0900_20x",
+    "att_plate_2": "et_0900_20x",
+    "stiff_section": "lbar_01",
+    "location": "side",
+}
+
+stiffener_element_side_01 = stiffener_element_constructor(
+    vessel, laminates, stiff_sections, **stiffener_element_side_01_input
+)
 
 panel = panel_element_constructor(vessel, laminates, **panel_input)
-print(f"Bend stiff: {stiffener_element.model.stiff_section_att_plate.bend_stiff()}")
-print(f"stiff: {stiffener_element.model.stiff_section_att_plate.stiff}")
-print(f"z_na: {stiffener_element.model.stiff_section_att_plate.z_center()}")
-print(f"web stiff: {stiffener_element.model.stiff_section_att_plate.shear_stiff}")
-print(f"thick: {et_0900_20x.thickness}")
+print(
+    f"Bend stiff: {stiffener_element_side_01.model.stiff_section_att_plate.bend_stiff()}"
+)
+print(f"stiff: {stiffener_element_side_01.model.stiff_section_att_plate.stiff}")
+print(f"z_na: {stiffener_element_side_01.model.stiff_section_att_plate.z_center()}")
+print(
+    f"web stiff: {stiffener_element_side_01.model.stiff_section_att_plate.shear_stiff}"
+)
+
+# print(f"Bend stiff: {stiffener_element.model.stiff_section_att_plate.bend_stiff()}")
+# print(f"stiff: {stiffener_element.model.stiff_section_att_plate.stiff}")
+# print(f"z_na: {stiffener_element.model.stiff_section_att_plate.z_center()}")
+# print(f"web stiff: {stiffener_element.model.stiff_section_att_plate.shear_stiff}")

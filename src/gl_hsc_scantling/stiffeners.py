@@ -46,57 +46,56 @@ class SectionElement(abc.ABC):
     @abc.abstractmethod
     def bend_stiff(self, angle=0) -> float:
         """Bending stiffness E*I (kPa*m4)"""
-        pass
 
     @abc.abstractproperty
     def stiff(self) -> float:
         """Extensional stiffness E*A (kPa*m²)."""
-        pass
 
     @abc.abstractproperty
     def shear_stiff(self) -> float:
         """Shear stiffness G*A (kPa*m²)"""
-        pass
 
     @abc.abstractmethod
     def z_limits(self, angle=0) -> Z_limits:
-        """z coordinate of element's lower and upper boundries (m)."""
-        pass
+        """z coordinate of element's lower and upper boundries (m)
+        in the local coordinate system.
+        """
 
     @abc.abstractmethod
     def z_center(self, angle=0) -> float:
-        """z coordinate of element's centroid (m)."""
-        pass
+        """z coordinate of element's centroid (m)
+        in the local coordinate system.
+        """
 
 
 class HomogeneousSectionElement(SectionElement):
-    material: ABCLaminate
+    laminate: ABCLaminate
 
     @abc.abstractproperty
     def area(self) -> float:
         """Area (m²)."""
-        pass
 
     @abc.abstractmethod
     def inertia(self, angle=0) -> float:
         """Area moment of inertia - I (m4)."""
-        pass
 
     def bend_stiff(self, angle=0) -> float:
-        return self.inertia(angle) * self.material.modulus_x
+        return self.inertia(angle) * self.laminate.modulus_x
 
     @property
     def stiff(self) -> float:
-        return self.area * self.material.modulus_x
+        return self.area * self.laminate.modulus_x
 
     @property
     def shear_stiff(self) -> float:
-        return self.area * self.material.modulus_xy
+        return self.area * self.laminate.modulus_xy
 
 
 @dataclass
 class RectSectionElement(HomogeneousSectionElement):
-    material: ABCLaminate
+    """Rectangular element, with local centroid at the mid witdth at height 0."""
+
+    laminate: ABCLaminate
     dimension: float
 
     @abc.abstractproperty
@@ -108,13 +107,18 @@ class RectSectionElement(HomogeneousSectionElement):
         pass
 
     def _z_corners(self, angle=0):
+        """Returns a np.array with z coordinates of corner with respect to local
+        coordinete system. Angle in degress.
+        """
         rad = np.radians(angle)
         sin = np.sin(rad)
         cos = np.cos(rad)
-        z2 = sin * self.width
-        z3 = cos * self.height
-        z4 = z2 + z3
-        return np.array([0, z2, z3, z4])
+        z2 = sin * self.width / 2
+        z1 = -z2
+        zmid = cos * self.height
+        z3 = zmid + z2
+        z4 = zmid - z2
+        return np.array([z1, z2, z3, z4])
 
     def z_limits(self, angle=0):
         return Z_limits(np.min(self._z_corners(angle)), np.max(self._z_corners(angle)))
@@ -144,13 +148,13 @@ class SectionElmtRectVert(RectSectionElement):
 
     @property
     def width(self) -> float:
-        return self.material.thickness
+        return self.laminate.thickness
 
 
 class SectionElmtRectHoriz(RectSectionElement):
     @property
     def height(self):
-        return self.material.thickness
+        return self.laminate.thickness
 
     @property
     def width(self):
@@ -207,13 +211,14 @@ class StiffenerSection(SectionElement):
         return np.sum([elmt.sect_elmt.stiff for elmt in self.elmts])
 
     def _z_elmt(self, elmt: Elmt, angle=0) -> float:
-        return elmt.sect_elmt.z_center(angle + elmt.angle) + _coord_transform(
-            elmt.anchor_pt, angle
-        )
+        return elmt.sect_elmt.z_center(angle) + _coord_transform(elmt.anchor_pt, angle)
 
-    def _sum_stiff_z(self, angle=0):
+    def _sum_stiff_z(self, angle=0) -> float:
         return np.sum(
-            [elmt.sect_elmt.stiff * self._z_elmt(elmt, angle) for elmt in self.elmts]
+            [
+                elmt.sect_elmt.stiff * self._z_elmt(elmt, angle + elmt.angle)
+                for elmt in self.elmts
+            ]
         )
 
     def z_center(self, angle=0):
@@ -222,8 +227,8 @@ class StiffenerSection(SectionElement):
     def _bend_stiff_bottom(self, angle=0):
         return np.sum(
             [
-                elmt.sect_elmt.bend_stiff(angle)
-                + (elmt.sect_elmt.stiff * self._z_elmt(elmt, angle) ** 2)
+                elmt.sect_elmt.bend_stiff(angle + elmt.angle)
+                + (elmt.sect_elmt.stiff * self._z_elmt(elmt, angle + elmt.angle) ** 2)
                 for elmt in self.elmts
             ]
         )
@@ -252,7 +257,10 @@ class LBar(StiffenerSection):
             Elmt(SectionElmtRectVert(self.laminate_web, self.dimension_web), web=True),
             Elmt(
                 SectionElmtRectHoriz(self.laminate_flange, self.dimension_flange),
-                anchor_pt=Point2D(0, self.dimension_web),
+                anchor_pt=Point2D(
+                    (self.dimension_flange - self.laminate_web.thickness) / 2,
+                    self.dimension_web,
+                ),
             ),
         ]
         return elmts
@@ -273,7 +281,7 @@ def stiff_section_factory(sect_type, laminates, **definition):
 class AttPlateSandwich(StiffenerSection):
     """Sandwich attached plate section."""
 
-    laminate: ABCLaminate
+    laminate: SandwichLaminate
     dimension: float
 
     @property

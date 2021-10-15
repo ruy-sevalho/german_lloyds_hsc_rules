@@ -11,3 +11,7 @@ def stiffener_check(stiffener: StructuralElement, exp: ExpStiffenerElement):
 
 def test_bottom_stiffener_01(stiffener_bottom_01, stiffener_bottom_01_exp):
     stiffener_check(stiffener_bottom_01, stiffener_bottom_01_exp)
+
+
+def test_bottom_stiffener_02(stiffener_side_01, stiffener_side_01_exp):
+    stiffener_check(stiffener_side_01, stiffener_side_01_exp)
