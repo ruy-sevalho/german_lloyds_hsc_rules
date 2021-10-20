@@ -22,18 +22,18 @@ from .locations import (
     DeckHouseMainSide,
     DeckHouseOther,
 )
-from .stiffeners import (
-    LBar,
-    StiffenerSection,
-    Stiffener,
-)
+from .stiffeners import LBar, StiffenerSection, Stiffener, AttStiffenerSection, LBar20
 from .elements import StructuralElement
 
-
+# Classes to extract input must be dataclasses, with relevant input as fields.
+# Other else it is assumed that the class needs no initialization paramenters
 def input_extractor(data_class, inputs: dict[str, Any]) -> dict[str, Any]:
-    keys = [field.name for field in fields(data_class)]
-    extracted_inputs = {key: inputs[key] for key in keys if key in inputs.keys()}
-    return extracted_inputs
+    try:
+        keys = [field.name for field in fields(data_class)]
+        extracted_inputs = {key: inputs[key] for key in keys if key in inputs.keys()}
+        return extracted_inputs
+    except TypeError:
+        return dict()
 
 
 def value_substitution(
@@ -91,14 +91,16 @@ def location_constructor(**kwargs) -> Location:
 
 def stiffener_section_constructor(
     laminates: dict[str, ABCLaminate], **kwargs
-) -> StiffenerSection:
+) -> AttStiffenerSection:
+    name_dict_pairs_ = {"laminate_web": laminates, "laminate_flange": laminates}
     table = {
-        "lbar": (LBar, {"laminate_web": laminates, "laminate_flange": laminates}),
+        "lbar": (LBar, name_dict_pairs_),
+        "lbar20": (LBar20, name_dict_pairs_),
     }
     stiffener_section, name_dict_pairs = table[kwargs["section_profile"].lower()]
     inputs = input_extractor(stiffener_section, kwargs)
     inputs = value_substitution(inputs, name_dict_pairs)
-    return stiffener_section(**inputs)
+    return AttStiffenerSection(elmt_container=stiffener_section(**inputs))
 
 
 def stiffener_att_plate_section_constructor(

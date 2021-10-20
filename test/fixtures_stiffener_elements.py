@@ -79,7 +79,7 @@ def stiffener_side_01(et_0900_20x, lbar_01, vessel_ex1, stiffener_side_01_input)
 def stiffener_side_01_exp():
     return ExpStiffenerElement(
         stiffener_section=ExpStiffenerSection(
-            bend_stiffness_NA=8.05013849686316,
+            bend_stiffness_NA=7.98195791502877,
             z_NA=0.0112865125011699,
             web_shear_stiffness=2707.26407307195,
             stiffness=23856.1306743935,
