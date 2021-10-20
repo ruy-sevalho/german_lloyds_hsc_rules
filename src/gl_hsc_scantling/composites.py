@@ -8,7 +8,7 @@ Created on Thu Aug  6 11:49:36 2020
 from functools import cache
 from abc import ABC, abstractproperty
 from enum import Enum, auto
-from typing import Tuple
+from typing import Tuple, Protocol
 
 import numpy as np
 from .dc import dataclass
@@ -23,7 +23,7 @@ from .report import (
 )
 
 
-def _matrix_inv(matrix):
+def _matrix_inv(matrix) -> np.ndarray:
     @cache
     def _cached_inv(tup):
         return np.linalg.inv(tup)
@@ -41,7 +41,7 @@ class FiberArregment(str, Enum):
 
 
 @dataclass
-class Matrix(Data):
+class Matrix:
     """Generic matrix - resins -  material"""
 
     name: str
@@ -52,7 +52,7 @@ class Matrix(Data):
 
 
 @dataclass
-class Fiber(Data):
+class Fiber:
     """Generic fiber material"""
 
     name: str
@@ -63,15 +63,67 @@ class Fiber(Data):
     poisson: float
 
 
-class Lamina(ABC):
-    thickness: float
+class LaminaData(Protocol):
+    """2D lamina material propeties."""
+
+    name: str
     modulus_x: float
     modulus_y: float
     modulus_xy: float
+    poisson_xy: float
+    thickness: float
+    f_mass_cont: float
+    f_area_density: float
+    max_strain_x: float
+    max_strain_xy: float
+
+
+# Factored data out to get composition over inheritance. Redirected the calls to the data object do the code doesnt breakdown
+@dataclass
+class Lamina:
+    """Lamina stiffness and physical properties calculation logic."""
+
+    data: LaminaData
 
     @property
-    def limit_strain(self):
-        return np.array([self.max_strain_x, self.max_strain_xy])
+    def name(self):
+        return self.data.name
+
+    @property
+    def modulus_x(self):
+        return self.data.modulus_x
+
+    @property
+    def modulus_y(self):
+        return self.data.modulus_y
+
+    @property
+    def modulus_xy(self):
+        return self.data.modulus_xy
+
+    @property
+    def poisson_xy(self):
+        return self.data.poisson_xy
+
+    @property
+    def thickness(self):
+        return self.data.thickness
+
+    @property
+    def f_mass_cont(self):
+        return self.data.f_mass_cont
+
+    @property
+    def f_area_density(self):
+        return self.data.f_area_density
+
+    @property
+    def max_strain_x(self):
+        return self.data.max_strain_x
+
+    @property
+    def max_strain_xy(self):
+        return self.data.max_strain_xy
 
     @property
     def poisson_yx(self):
@@ -92,7 +144,7 @@ class Lamina(ABC):
 
 
 @dataclass
-class LaminaMonolith(Lamina, Data):
+class LaminaMonolith:
     """Single lamina externally defiened properties"""
 
     name: str
@@ -108,7 +160,7 @@ class LaminaMonolith(Lamina, Data):
 
 
 @dataclass
-class LaminaPartsWoven(Lamina):
+class LaminaPartsWoven:
     """Single lamina made of woven cloth - prop caculated from fiber and
     matrix, in accordance to C3.8.2 Elasto-mechanical properties
     of laminated structures.
@@ -123,7 +175,7 @@ class LaminaPartsWoven(Lamina):
     max_strain_xy: float
 
     @property
-    def f_vol_cont(self):
+    def _f_vol_cont(self):
         return self.f_mass_cont / (
             self.f_mass_cont
             + (1 - self.f_mass_cont) * self.fiber.density / self.matrix.density
@@ -132,8 +184,8 @@ class LaminaPartsWoven(Lamina):
     @property
     def modulus_x(self):
         return (
-            self.f_vol_cont * self.fiber.modulus_x
-            + (1 - self.f_vol_cont) * self.matrix.modulus_x
+            self._f_vol_cont * self.fiber.modulus_x
+            + (1 - self._f_vol_cont) * self.matrix.modulus_x
         )
 
     @property
@@ -141,10 +193,10 @@ class LaminaPartsWoven(Lamina):
         return (
             self.matrix.modulus_x
             / (1 - self.matrix.poisson ** 2)
-            * (1 + 0.85 * self.f_vol_cont ** 2)
+            * (1 + 0.85 * self._f_vol_cont ** 2)
             / (
-                (1 - self.f_vol_cont) ** 1.25
-                + self.f_vol_cont
+                (1 - self._f_vol_cont) ** 1.25
+                + self._f_vol_cont
                 * self.matrix.modulus_x
                 / (self.fiber.modulus_y * (1 - self.matrix.poisson ** 2))
             )
@@ -154,18 +206,18 @@ class LaminaPartsWoven(Lamina):
     def modulus_xy(self):
         return (
             self.matrix.modulus_xy
-            * (1 + 0.8 * self.f_vol_cont ** 0.8)
+            * (1 + 0.8 * self._f_vol_cont ** 0.8)
             / (
-                (1 - self.f_vol_cont) ** 1.25
-                + self.matrix.modulus_xy * self.f_vol_cont / self.fiber.modulus_xy
+                (1 - self._f_vol_cont) ** 1.25
+                + self.matrix.modulus_xy * self._f_vol_cont / self.fiber.modulus_xy
             )
         )
 
     @property
     def poisson_xy(self):
         return (
-            self.f_vol_cont * self.fiber.poisson
-            + (1 - self.f_vol_cont) * self.matrix.poisson
+            self._f_vol_cont * self.fiber.poisson
+            + (1 - self._f_vol_cont) * self.matrix.poisson
         )
 
     @property
@@ -197,7 +249,7 @@ class LaminaPartsCSM(LaminaPartsWoven):
 
 
 @dataclass
-class Core_mat(Data):
+class Core_mat:
     """Core material, with strength and modulus inputs in kPa.
     Density value should be in kg/m3 and resin absorption in kg/m2"""
 
@@ -214,7 +266,7 @@ class Core_mat(Data):
 
 
 @dataclass
-class Core(Data):
+class Core:
     """Core definied by core material and thickness (m)"""
 
     name: str
@@ -362,7 +414,7 @@ class PlyPositioned:
 
 
 @dataclass
-class ABCLaminate(Data, ABC):
+class ABCLaminate(ABC):
     """ """
 
     # Old relic should remove as soon as there is something else working

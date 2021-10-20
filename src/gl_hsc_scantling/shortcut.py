@@ -8,6 +8,7 @@ from .composites import (
     LaminaPartsWoven,
     LaminaPartsCSM,
     Lamina,
+    LaminaData,
     ABCLaminate,
     SingleSkinLaminate,
     SandwichLaminate,

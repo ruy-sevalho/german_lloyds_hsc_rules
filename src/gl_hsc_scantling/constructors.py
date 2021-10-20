@@ -3,6 +3,7 @@ from typing import Any
 from .vessel import Vessel
 from .composites import (
     ABCLaminate,
+    LaminaData,
     Lamina,
     Fiber,
     LaminaMonolith,
@@ -22,7 +23,7 @@ from .locations import (
     DeckHouseMainSide,
     DeckHouseOther,
 )
-from .stiffeners import LBar, StiffenerSection, Stiffener, AttStiffenerSection, LBar20
+from .stiffeners import LBar, StiffenerSection, Stiffener, AttStiffenerSection
 from .elements import StructuralElement
 
 # Classes to extract input must be dataclasses, with relevant input as fields.
@@ -63,7 +64,7 @@ def lamina_constructor(
 
     table = {"parts": parts_lamina_constructor, "monoltih": monolith_lamina_constructor}
     constructor = table[kwargs["properties from"]]
-    return constructor(fibers=fibers, matrices=matrices, **kwargs)
+    return Lamina(constructor(fibers=fibers, matrices=matrices, **kwargs))
 
 
 def panel_constructor(laminates: dict[str, ABCLaminate], **kwargs) -> Panel:
@@ -92,10 +93,8 @@ def location_constructor(**kwargs) -> Location:
 def stiffener_section_constructor(
     laminates: dict[str, ABCLaminate], **kwargs
 ) -> AttStiffenerSection:
-    name_dict_pairs_ = {"laminate_web": laminates, "laminate_flange": laminates}
     table = {
-        "lbar": (LBar, name_dict_pairs_),
-        "lbar20": (LBar20, name_dict_pairs_),
+        "lbar": (LBar, {"laminate_web": laminates, "laminate_flange": laminates}),
     }
     stiffener_section, name_dict_pairs = table[kwargs["section_profile"].lower()]
     inputs = input_extractor(stiffener_section, kwargs)

@@ -1,4 +1,14 @@
-from dataclasses import fields
+from dataclasses import fields, asdict
+from gl_hsc_scantling.report import Data
+from gl_hsc_scantling.stiffeners import (
+    SectionElementList,
+    StiffenerSection,
+    Point2D,
+    Elmt,
+    SectionElmtRectHoriz,
+    SectionElmtRectVert,
+    Stiffener,
+)
 from gl_hsc_scantling.shortcut import (
     Vessel,
     Fiber,
@@ -22,6 +32,7 @@ from gl_hsc_scantling.shortcut import (
     stiffener_section_constructor,
     stiffener_element_constructor,
 )
+from gl_hsc_scantling.stiffeners import AttStiffenerSection
 from test.fixtures_laminates import et_0900_20x_45deg
 
 vessel = Vessel(
@@ -137,13 +148,19 @@ bottom = Bottom(deadrise=20)
 # panel_element = StructuralElement(
 #     name="Bottom Panel", x=5, z=-0.3, vessel=vessel, model=panel, location=bottom
 # )
-lbar = LBar(
-    name="lbar_01",
-    laminate_web=et_0900_20x_45,
-    dimension_web=0.05,
-    laminate_flange=et_0900_20x,
-    dimension_flange=0.02,
-)
+lbar_input = {
+    "name": "lbar_01",
+    "section_profile": "lbar",
+    "laminate_web": "et_0900_20x_45",
+    "dimension_web": 0.05,
+    "laminate_flange": "et_0900_20x",
+    "dimension_flange": 0.02,
+}
+
+laminates = {lam.name: lam for lam in [et_0900_20x, et_0900_20x_45]}
+lbar = stiffener_section_constructor(laminates=laminates, **lbar_input)
+
+
 stiffener = Stiffener(
     stiff_section=lbar,
     span=1,
@@ -252,14 +269,39 @@ stiffener_element_side_01 = stiffener_element_constructor(
 )
 
 panel = panel_element_constructor(vessel, laminates, **panel_input)
-print(
-    f"Bend stiff: {stiffener_element_side_01.model.stiff_section_att_plate.bend_stiff()}"
-)
-print(f"stiff: {stiffener_element_side_01.model.stiff_section_att_plate.stiff}")
-print(f"z_na: {stiffener_element_side_01.model.stiff_section_att_plate.z_center()}")
-print(
-    f"web stiff: {stiffener_element_side_01.model.stiff_section_att_plate.shear_stiff}"
-)
+panel_dict = asdict(panel)
+named_fields = [
+    dim.name for dim in fields(panel) if isinstance(getattr(panel, dim.name), Data)
+]
+print(named_fields)
+s = Side()
+
+
+class ExampleStiff:
+    elmts = [
+        Elmt(
+            SectionElmtRectVert(et_0900_20x_45, 0.05),
+            anchor_pt=Point2D(0, 0.00456),
+            angle=20,
+        ),
+        Elmt(),
+    ]
+
+
+def print_section(section: AttStiffenerSection):
+    print(f"bendstiff: {section.bend_stiff()}")
+    print(f"bend_stiff_base: {section.bend_stiff_base()}")
+    print(f"center: {section.center()}")
+
+
+# print_section(lbar)
+
+# def new_func(stiffener: Stiffener):
+#     print(f"Bend stiff: {stiffener.stiff_section_att_plate.bend_stiff()}")
+#     print(f"stiff: {stiffener.stiff_section_att_plate.stiff}")
+#     print(f"z_na: {stiffener.stiff_section_att_plate.z_center()}")
+#     print(f"web stiff: {stiffener.stiff_section_att_plate.shear_stiff}")
+
 
 # print(f"Bend stiff: {stiffener_element.model.stiff_section_att_plate.bend_stiff()}")
 # print(f"stiff: {stiffener_element.model.stiff_section_att_plate.stiff}")
