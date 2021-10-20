@@ -516,12 +516,10 @@ class Bottom(Location):
     _pressures = [Sea(), ImpactBottom()]
 
 
-@dataclass
 class Side(Location):
     _pressures = [Sea()]
 
 
-@dataclass
 class Deck(Location):
     _pressures = [DeckPressure()]
 

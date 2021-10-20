@@ -3,8 +3,6 @@ from abc import ABC, abstractmethod
 
 # Abstract classes
 class Pressure(ABC):
-    name: str
-
     @abstractmethod
     def calc(self, elmt) -> float:
         pass
