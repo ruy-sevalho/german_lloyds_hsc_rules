@@ -7,7 +7,6 @@
 import numpy as np
 import pytest as pt
 
-
 from gl_hsc_scantling.composites import SingleSkinLaminate, SandwichLaminate, Ply
 
 from .exp_output import ExpLaminate

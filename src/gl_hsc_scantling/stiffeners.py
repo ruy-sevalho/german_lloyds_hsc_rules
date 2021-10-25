@@ -395,43 +395,6 @@ class LBar(SectionElementListWithFoot):
 
 
 @dataclass
-class LBar20(SectionElementListWithFoot):
-    """L bar profile - composed of a web and a flange. Dimensions in m."""
-
-    name: str
-    laminate_web: ABCLaminate
-    dimension_web: float
-    laminate_flange: ABCLaminate
-    dimension_flange: float
-
-    @property
-    def elmts(self) -> list[Elmt]:
-        return [
-            Elmt(
-                SectionElmtRectVert(self.laminate_web, self.dimension_web),
-                anchor_pt=Point2D(0, 0.00456),
-                web=True,
-                angle=20,
-            ),
-            Elmt(
-                SectionElmtRectHoriz(self.laminate_flange, self.dimension_flange),
-                anchor_pt=Point2D(0, 0.00456)
-                + _coord_transform(
-                    Point2D(
-                        (self.dimension_flange - self.laminate_web.thickness) / 2,
-                        self.dimension_web,
-                    ),
-                    angle=20,
-                ),
-            ),
-        ]
-
-    @property
-    def foot_width(self) -> float:
-        return self.elmts[0].sect_elmt.width
-
-
-@dataclass
 class AttPlateSandwich(SectionElementList):
     """Sandwich attached plate section."""
 
