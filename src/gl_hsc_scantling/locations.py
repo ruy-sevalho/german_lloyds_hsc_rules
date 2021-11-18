@@ -513,15 +513,21 @@ class DeckHouseOther(DeckHouse):
 class Bottom(Location):
     deadrise: float
 
-    _pressures = [Sea(), ImpactBottom()]
+    @property
+    def _pressures(self):
+        return [Sea(), ImpactBottom()]
 
 
 class Side(Location):
-    _pressures = [Sea()]
+    @property
+    def _pressures(self):
+        return [Sea()]
 
 
 class Deck(Location):
-    _pressures = [DeckPressure()]
+    @property
+    def _pressures(self):
+        return [DeckPressure()]
 
 
 @dataclass
@@ -529,25 +535,33 @@ class WetDeck(Location):
     deadrise: float
     air_gap: float
 
-    _pressures = [Sea(), ImpactWetDeck()]
+    @property
+    def _pressures(self):
+        return [Sea(), ImpactWetDeck()]
 
 
 @dataclass
 class DeckHouseMainFront(Location):
     deckhouse_breadth: float
 
-    _pressures = [DeckHouseMainFront()]
+    @property
+    def _pressures(self):
+        return [DeckHouseMainFront()]
 
 
 @dataclass
 class DeckHouseMainSide(Location):
     deckhouse_breadth: float
 
-    _pressures = [DeckHouseMainSide()]
+    @property
+    def _pressures(self):
+        return [DeckHouseMainSide()]
 
 
 @dataclass
 class DeckHouseOther(Location):
     deckhouse_breadth: float
 
-    _pressures = [DeckHouseOther()]
+    @property
+    def _pressures(self):
+        return [DeckHouseOther()]
