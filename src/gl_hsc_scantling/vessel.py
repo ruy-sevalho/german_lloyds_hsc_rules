@@ -4,24 +4,23 @@ Created on Tue Jun 29 09:38:12 2021
 
 @author: ruy
 """
-from dataclasses import field, asdict
-from enum import Enum
 from abc import ABC
+from dataclasses import asdict, field
+from enum import Enum
 
 import numpy as np
-from pylatex import NoEscape, Quantity
-from .dc import dataclass
 from marshmallow import Schema, fields
+from pylatex import NoEscape, Quantity
 
 from .constants import GRAVITY
+from .dc import dataclass
 from .report import (
+    Data,
     NamePrint,
-    _print_wrapper_builder,
     _data_to_dict,
     _input_data_dict,
-    Data,
+    _print_wrapper_builder,
 )
-
 
 # from typing import dict
 
