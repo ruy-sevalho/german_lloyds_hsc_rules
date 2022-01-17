@@ -5,12 +5,16 @@ Created on Thu Aug  6 11:49:36 2020
 @author: ruy
 """
 
+from dataclasses import field
 from functools import cache
 from abc import ABC, abstractproperty
 from enum import Enum, auto
 from typing import Tuple, Protocol
 
 import numpy as np
+
+from dataclass_tools.tools import DeSerializerOptions, DESERIALIZER_OPTIONS
+
 from .dc import dataclass
 
 from .report import (
@@ -21,6 +25,8 @@ from .report import (
     Data,
     Criteria,
 )
+
+NAMED_FIELD_OPTIONS = DeSerializerOptions(subs_by_attr="name")
 
 
 def _matrix_inv(matrix) -> np.ndarray:
@@ -78,71 +84,6 @@ class LaminaData(Protocol):
     max_strain_xy: float
 
 
-# Factored data out to get composition over inheritance. Redirected the calls to the data object do the code doesnt breakdown
-@dataclass
-class Lamina:
-    """Lamina stiffness and physical properties calculation logic."""
-
-    data: LaminaData
-
-    @property
-    def name(self):
-        return self.data.name
-
-    @property
-    def modulus_x(self):
-        return self.data.modulus_x
-
-    @property
-    def modulus_y(self):
-        return self.data.modulus_y
-
-    @property
-    def modulus_xy(self):
-        return self.data.modulus_xy
-
-    @property
-    def poisson_xy(self):
-        return self.data.poisson_xy
-
-    @property
-    def thickness(self):
-        return self.data.thickness
-
-    @property
-    def f_mass_cont(self):
-        return self.data.f_mass_cont
-
-    @property
-    def f_area_density(self):
-        return self.data.f_area_density
-
-    @property
-    def max_strain_x(self):
-        return self.data.max_strain_x
-
-    @property
-    def max_strain_xy(self):
-        return self.data.max_strain_xy
-
-    @property
-    def poisson_yx(self):
-        return self.poisson_xy * self.modulus_y / self.modulus_x
-
-    @property
-    def Q_local(self):
-        """Calculates Q matix in the ply local direction"""
-        factor = 1 - self.poisson_xy * self.poisson_yx
-        Qxx = self.modulus_x / factor
-        Qyy = self.modulus_y / factor
-        Qxy = self.poisson_xy * self.modulus_y / factor
-        return np.array([[Qxx, Qxy, 0], [Qxy, Qyy, 0], [0, 0, self.modulus_xy]])
-
-    @property
-    def total_area_density(self):
-        return self.f_area_density / self.f_mass_cont
-
-
 @dataclass
 class LaminaMonolith:
     """Single lamina externally defiened properties"""
@@ -167,8 +108,8 @@ class LaminaPartsWoven:
     """
 
     name: str
-    fiber: Fiber
-    matrix: Matrix
+    fiber: Fiber = field(metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS})
+    matrix: Matrix = field(metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS})
     f_mass_cont: float
     f_area_density: float
     max_strain_x: float
@@ -248,8 +189,79 @@ class LaminaPartsCSM(LaminaPartsWoven):
         return self.modulus_x / (2 * (1 + self.poisson_xy))
 
 
+LAMININA_TYPE_OPTIONS = DeSerializerOptions(
+    flatten=True, add_type=True, type_label="lamina_data_type"
+)
+LAMINA_DATA_TYPES: list[LaminaData] = [LaminaMonolith, LaminaPartsCSM, LaminaPartsWoven]
+LAMINA_TYPE_TABLE = {lamina.__name__: lamina for lamina in LAMINA_DATA_TYPES}
+
+# Factored data out to get composition over inheritance. Redirected the calls to the data object so the code doesnt breakdown
 @dataclass
-class Core_mat:
+class Lamina:
+    """Lamina stiffness and physical properties calculation logic."""
+
+    data: LaminaData = field(metadata={DESERIALIZER_OPTIONS: LAMININA_TYPE_OPTIONS})
+
+    @property
+    def name(self):
+        return self.data.name
+
+    @property
+    def modulus_x(self):
+        return self.data.modulus_x
+
+    @property
+    def modulus_y(self):
+        return self.data.modulus_y
+
+    @property
+    def modulus_xy(self):
+        return self.data.modulus_xy
+
+    @property
+    def poisson_xy(self):
+        return self.data.poisson_xy
+
+    @property
+    def thickness(self):
+        return self.data.thickness
+
+    @property
+    def f_mass_cont(self):
+        return self.data.f_mass_cont
+
+    @property
+    def f_area_density(self):
+        return self.data.f_area_density
+
+    @property
+    def max_strain_x(self):
+        return self.data.max_strain_x
+
+    @property
+    def max_strain_xy(self):
+        return self.data.max_strain_xy
+
+    @property
+    def poisson_yx(self):
+        return self.poisson_xy * self.modulus_y / self.modulus_x
+
+    @property
+    def Q_local(self):
+        """Calculates Q matix in the ply local direction"""
+        factor = 1 - self.poisson_xy * self.poisson_yx
+        Qxx = self.modulus_x / factor
+        Qyy = self.modulus_y / factor
+        Qxy = self.poisson_xy * self.modulus_y / factor
+        return np.array([[Qxx, Qxy, 0], [Qxy, Qyy, 0], [0, 0, self.modulus_xy]])
+
+    @property
+    def total_area_density(self):
+        return self.f_area_density / self.f_mass_cont
+
+
+@dataclass
+class CoreMat:
     """Core material, with strength and modulus inputs in kPa.
     Density value should be in kg/m3 and resin absorption in kg/m2"""
 
@@ -265,13 +277,21 @@ class Core_mat:
     core_type: str = "solid"
 
 
+CORE_MATERIAL_OPTIONS = DeSerializerOptions(subs_by_attr="name")
+
+
 @dataclass
 class Core:
     """Core definied by core material and thickness (m)"""
 
     name: str
-    core_material: Core_mat
+    core_material: CoreMat = field(
+        metadata={DESERIALIZER_OPTIONS: CORE_MATERIAL_OPTIONS}
+    )
     thickness: float
+
+
+PLY_MATERIAL_OPTIONS = DeSerializerOptions(subs_by_attr="name")
 
 
 @dataclass
@@ -280,7 +300,7 @@ class Ply:
     orientation - degrees.
     """
 
-    material: Lamina
+    material: Lamina = field(metadata={DESERIALIZER_OPTIONS: PLY_MATERIAL_OPTIONS})
     orientation: float
 
     @property
@@ -413,6 +433,10 @@ class PlyPositioned:
         return self.ply.Q_global
 
 
+class Laminate(Protocol):
+    plies_unpositioned_: list[Ply]
+
+
 @dataclass
 class ABCLaminate(ABC):
     """ """
@@ -430,23 +454,6 @@ class ABCLaminate(ABC):
                 (5.7101471627692, 224.809, 8850.75),
             ),
         }
-
-    @property
-    def thick_array(self) -> float:
-        return np.array([ply.thickness for ply in self.plies_unpositioned])
-
-    @property
-    def thickness(self) -> float:
-        return np.sum(self.thick_array)
-
-    @property
-    def z_mid(self) -> float:
-        return self.thickness / 2
-
-    @property
-    def z_coords(self):
-        z0 = np.cumsum(self.thick_array) - self.thick_array[0] - self.z_mid
-        return np.array([[z_, z_ + z] for z_, z in zip(z0, self.thick_array)])
 
     @abstractproperty
     def plies() -> list[PlyPositioned]:
@@ -687,6 +694,23 @@ class SingleSkinLaminate(ABCLaminate):
     plies_unpositioned: list[Ply]
 
     @property
+    def thick_array(self) -> float:
+        return np.array([ply.thickness for ply in self.plies_unpositioned])
+
+    @property
+    def thickness(self) -> float:
+        return np.sum(self.thick_array)
+
+    @property
+    def z_mid(self) -> float:
+        return self.thickness / 2
+
+    @property
+    def z_coords(self):
+        z0 = np.cumsum(self.thick_array) - self.thick_array[0] - self.z_mid
+        return np.array([[z_, z_ + z] for z_, z in zip(z0, self.thick_array)])
+
+    @property
     def plies(self):
         return [
             PlyPositioned(ply, z_coord)
@@ -704,23 +728,40 @@ class SandwichLaminate(ABCLaminate):
     """
 
     name: str
-    outter_laminate: SingleSkinLaminate
-    inner_laminate: SingleSkinLaminate
+    outter_laminate_ply_list: list[Ply]
+    inner_laminate_ply_list: list[Ply]
     core: Core
 
     @property
     def plies_unpositioned(self):
-        return [self.outter_laminate, self.core, self.inner_laminate]
+        return [self.outter_laminate_ply_list, self.core, self.inner_laminate_ply_list]
+
+    @property
+    def exp(self):
+        return 1 / 3
+
+    @property
+    def outter_laminate(self):
+        return SingleSkinLaminate(
+            plies_unpositioned=self.outter_laminate_ply_list, name="outter_skin"
+        )
+
+    @property
+    def inner_laminate(self):
+        return SingleSkinLaminate(
+            plies_unpositioned=self.inner_laminate_ply_list, name="inner_skin"
+        )
 
     @property
     def plies(self):
+
         outter_plies = [
             PlyPositioned(
                 ply,
                 z_coord - self.core.thickness / 2 - self.outter_laminate.thickness / 2,
             )
             for ply, z_coord in zip(
-                self.inner_laminate.plies_unpositioned, self.outter_laminate.z_coords
+                self.inner_laminate_ply_list, self.outter_laminate.z_coords
             )
         ]
         inner_plies = [
@@ -729,15 +770,15 @@ class SandwichLaminate(ABCLaminate):
                 z_coord + self.core.thickness / 2 + self.inner_laminate.thickness / 2,
             )
             for ply, z_coord in zip(
-                self.inner_laminate.plies_unpositioned, self.inner_laminate.z_coords
+                self.inner_laminate_ply_list, self.inner_laminate.z_coords
             )
         ]
         return outter_plies + inner_plies
 
     @property
-    def exp(self):
-        return 1 / 3
-
-    @property
-    def skins(self):
-        return [self.outter_laminate, self.inner_laminate]
+    def thickness(self):
+        return (
+            self.inner_laminate.thickness
+            + self.outter_laminate.thickness
+            + self.core.thickness
+        )
