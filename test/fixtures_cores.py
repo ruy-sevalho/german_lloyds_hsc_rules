@@ -6,7 +6,7 @@
 
 import pytest as pt
 
-from gl_hsc_scantling.shortcut import Core_mat, Core
+from gl_hsc_scantling.shortcut import CoreMat, Core
 
 
 @pt.fixture
@@ -27,7 +27,7 @@ def H80_input():
 
 @pt.fixture
 def H80(H80_input):
-    return Core_mat(**H80_input)
+    return CoreMat(**H80_input)
 
 
 @pt.fixture

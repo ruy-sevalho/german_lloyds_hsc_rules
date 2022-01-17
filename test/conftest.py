@@ -13,7 +13,7 @@ from gl_hsc_scantling.composites import (
     Matrix,
     Fiber,
     Core,
-    Core_mat,
+    CoreMat,
     LaminaMonolith,
     SingleSkinLaminate,
     SandwichLaminate,
