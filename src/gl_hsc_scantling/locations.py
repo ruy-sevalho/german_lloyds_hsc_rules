@@ -4,18 +4,20 @@ Created on Wed Mar 31 12:19:42 2021
 
 @author: ruy
 """
-from functools import cached_property
-from enum import Enum
 from abc import ABC, abstractmethod
+from enum import Enum
+from functools import cached_property
 from typing import List
 
 import numpy as np
+
 from .dc import dataclass
-from .vessel import Vessel
-from .locations_abc import Location, Pressure
 from .elements import StructuralElement
+from .locations_abc import Location, Pressure
 from .panels import Panel
 from .stiffeners import Stiffener
+from .vessel import Vessel
+
 
 # Helper functions, all 'pure'.
 def _pressure_sea_f(z_baseline, draft, p_sea_min, factor_S):
@@ -394,7 +396,7 @@ class ImpactBottom(Impact):
         )
 
     def _pressure_impact_limit(self, elmt) -> float:
-        _pressure_impact_bottom_pre_f(
+        return _pressure_impact_bottom_pre_f(
             draft=elmt.vessel.draft,
             vert_acg=elmt.vessel.vert_acg,
             coef_k1=self._coef_k1_limit(elmt),
