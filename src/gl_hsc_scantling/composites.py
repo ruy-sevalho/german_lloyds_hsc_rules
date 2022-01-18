@@ -5,28 +5,25 @@ Created on Thu Aug  6 11:49:36 2020
 @author: ruy
 """
 
-from dataclasses import field
-from functools import cache
 from abc import ABC, abstractproperty
+from copy import deepcopy
+from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Tuple, Protocol
+from functools import cache
+from typing import Optional, Protocol, Tuple
 
 import numpy as np
+from dataclass_tools.tools import DESERIALIZER_OPTIONS, DeSerializerOptions
 
-from dataclass_tools.tools import DeSerializerOptions, DESERIALIZER_OPTIONS
-
-from .dc import dataclass
-
+from .named_field import NAMED_FIELD_OPTIONS
 from .report import (
+    Criteria,
+    Data,
     NamePrint,
-    _print_wrapper_builder,
     _data_to_dict,
     _input_data_dict,
-    Data,
-    Criteria,
+    _print_wrapper_builder,
 )
-
-NAMED_FIELD_OPTIONS = DeSerializerOptions(subs_by_attr="name")
 
 
 def _matrix_inv(matrix) -> np.ndarray:
@@ -189,11 +186,14 @@ class LaminaPartsCSM(LaminaPartsWoven):
         return self.modulus_x / (2 * (1 + self.poisson_xy))
 
 
-LAMININA_TYPE_OPTIONS = DeSerializerOptions(
-    flatten=True, add_type=True, type_label="lamina_data_type"
-)
 LAMINA_DATA_TYPES: list[LaminaData] = [LaminaMonolith, LaminaPartsCSM, LaminaPartsWoven]
 LAMINA_TYPE_TABLE = {lamina.__name__: lamina for lamina in LAMINA_DATA_TYPES}
+LAMININA_TYPE_OPTIONS = DeSerializerOptions(
+    flatten=True,
+    add_type=True,
+    type_label="lamina_data_type",
+    subtype_table=LAMINA_TYPE_TABLE,
+)
 
 # Factored data out to get composition over inheritance. Redirected the calls to the data object so the code doesnt breakdown
 @dataclass
@@ -456,7 +456,7 @@ class ABCLaminate(ABC):
         }
 
     @abstractproperty
-    def plies() -> list[PlyPositioned]:
+    def plies(self) -> list[PlyPositioned]:
         """Must place plies in z correct position. Sandwich laminates plies list
         does not include core. It just affects ply z coordinates.
         """
@@ -688,14 +688,43 @@ class ABCLaminate(ABC):
 
 
 @dataclass
+class PlyStack:
+    plies: list[Ply]
+    multiple: Optional[int] = None
+    symmetric: bool = False
+    antisymmetric: bool = False
+
+    def __post_init__(self):
+        if self.symmetric and self.antisymmetric:
+            raise ValueError(
+                "Ply stack can't be both symmetric and antisymmetric at the same time"
+            )
+
+    @property
+    def stack(self):
+        list_of_plies: list[Ply] = deepcopy(self.plies)
+        if self.multiple:
+            list_of_plies *= self.multiple
+        if self.symmetric:
+            for item in list_of_plies.reverse():
+                list_of_plies.append(item)
+        if self.antisymmetric:
+            for item in list_of_plies.reverse():
+                item.orientation *= -1
+                list_of_plies.append(item)
+
+        return list_of_plies
+
+
+@dataclass
 class SingleSkinLaminate(ABCLaminate):
 
     name: str
-    plies_unpositioned: list[Ply]
+    ply_stack: PlyStack
 
     @property
     def thick_array(self) -> float:
-        return np.array([ply.thickness for ply in self.plies_unpositioned])
+        return np.array([ply.thickness for ply in self.ply_stack.stack])
 
     @property
     def thickness(self) -> float:
@@ -714,7 +743,7 @@ class SingleSkinLaminate(ABCLaminate):
     def plies(self):
         return [
             PlyPositioned(ply, z_coord)
-            for ply, z_coord in zip(self.plies_unpositioned, self.z_coords)
+            for ply, z_coord in zip(self.ply_stack.stack, self.z_coords)
         ]
 
 
@@ -728,13 +757,24 @@ class SandwichLaminate(ABCLaminate):
     """
 
     name: str
-    outter_laminate_ply_list: list[Ply]
-    inner_laminate_ply_list: list[Ply]
-    core: Core
+    outter_laminate_ply_stack: PlyStack
+    core: Core = field(metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS})
+    inner_laminate_ply_stack: PlyStack = None
+    symmetric: bool = False
+    antisymmetric: bool = False
 
-    @property
-    def plies_unpositioned(self):
-        return [self.outter_laminate_ply_list, self.core, self.inner_laminate_ply_list]
+    def __post_init__(self):
+        if self.symmetric and self.antisymmetric:
+            raise ValueError(
+                "Sandwich laminate can't be both symmetric and antisymmetric at the same time"
+            )
+
+        if not self.inner_laminate_ply_stack and not (
+            self.symmetric or self.antisymmetric
+        ):
+            raise ValueError(
+                "Must either provide inner_laminate_ply_list or let laminate be symmetric or antisymmetric."
+            )
 
     @property
     def exp(self):
@@ -743,25 +783,40 @@ class SandwichLaminate(ABCLaminate):
     @property
     def outter_laminate(self):
         return SingleSkinLaminate(
-            plies_unpositioned=self.outter_laminate_ply_list, name="outter_skin"
+            ply_stack=self.outter_laminate_ply_stack, name="outter_skin"
         )
 
     @property
     def inner_laminate(self):
-        return SingleSkinLaminate(
-            plies_unpositioned=self.inner_laminate_ply_list, name="inner_skin"
-        )
+        inner_plies_stack = self.inner_laminate_ply_stack
+
+        if self.symmetric:
+            inner_plies_stack = PlyStack(
+                plies=[
+                    Ply(material=material, orientation=orientation)
+                    for material, orientation in self.outter_laminate_ply_stack.stack.reverse()
+                ]
+            )
+
+        if self.antisymmetric:
+            inner_plies_stack = PlyStack(
+                plies=[
+                    Ply(material=material, orientation=-orientation)
+                    for material, orientation in self.outter_laminate_ply_stack.stack.reverse()
+                ]
+            )
+
+        return SingleSkinLaminate(ply_stack=inner_plies_stack, name="inner_skin")
 
     @property
     def plies(self):
-
         outter_plies = [
             PlyPositioned(
                 ply,
                 z_coord - self.core.thickness / 2 - self.outter_laminate.thickness / 2,
             )
             for ply, z_coord in zip(
-                self.inner_laminate_ply_list, self.outter_laminate.z_coords
+                self.inner_laminate_ply_stack.stack, self.outter_laminate.z_coords
             )
         ]
         inner_plies = [
@@ -770,7 +825,7 @@ class SandwichLaminate(ABCLaminate):
                 z_coord + self.core.thickness / 2 + self.inner_laminate.thickness / 2,
             )
             for ply, z_coord in zip(
-                self.inner_laminate_ply_list, self.inner_laminate.z_coords
+                self.inner_laminate.ply_stack.stack, self.inner_laminate.z_coords
             )
         ]
         return outter_plies + inner_plies
