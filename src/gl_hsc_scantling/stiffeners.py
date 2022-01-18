@@ -4,14 +4,16 @@ Created on Wed Mar 31 12:28:58 2021
 
 @author: ruy
 """
-from dataclasses import astuple, fields
-import numpy as np
 import abc
+from dataclasses import astuple, dataclass, field, fields
 from itertools import chain
 
-from .dc import dataclass
-from .structural_model import StructuralModel, BoundaryCondition
-from .composites import SingleSkinLaminate, SandwichLaminate, ABCLaminate
+import numpy as np
+from dataclass_tools.tools import DESERIALIZER_OPTIONS
+
+from .composites import ABCLaminate, SandwichLaminate, SingleSkinLaminate
+from .named_field import NAMED_FIELD_OPTIONS
+from .structural_model import BoundaryCondition, StructuralModel
 
 
 class DimensionalData:
@@ -371,9 +373,13 @@ class LBar(SectionElementListWithFoot):
     """L bar profile - composed of a web and a flange. Dimensions in m."""
 
     name: str
-    laminate_web: ABCLaminate
+    laminate_web: ABCLaminate = field(
+        metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS}
+    )
     dimension_web: float
-    laminate_flange: ABCLaminate
+    laminate_flange: ABCLaminate = field(
+        metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS}
+    )
     dimension_flange: float
 
     @property
@@ -454,13 +460,19 @@ class Stiffener(StructuralModel):
     unsupported plates on each side.
     """
 
-    stiff_section: AttStiffenerSection
+    stiff_section: AttStiffenerSection = field(
+        metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS}
+    )
     span: float
     spacing_1: float
     spacing_2: float
     stiff_att_plate: int
-    att_plate_1: ABCLaminate
-    att_plate_2: ABCLaminate
+    att_plate_1: ABCLaminate = field(
+        metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS}
+    )
+    att_plate_2: ABCLaminate = field(
+        metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS}
+    )
     stiff_att_angle: float = 0
     bound_cond: BoundaryCondition = BoundaryCondition.FIXED
 
