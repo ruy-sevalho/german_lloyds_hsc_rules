@@ -4,10 +4,16 @@
  # @ Description:
  """
 
+from audioop import mul
+
 import numpy as np
 import pytest as pt
-
-from gl_hsc_scantling.composites import SingleSkinLaminate, SandwichLaminate, Ply
+from gl_hsc_scantling.composites import (
+    Ply,
+    PlyStack,
+    SandwichLaminate,
+    SingleSkinLaminate,
+)
 
 from .exp_output import ExpLaminate
 from .fixtures_laminas import *
@@ -26,12 +32,14 @@ def build_ABD_matrix(A: np.array, B: np.array, D: np.array):
 @pt.fixture
 def et_0900_20x_input(et_0900):
     orientation = [0, 90]
-    return [Ply(material=et_0900, orientation=ang) for ang in orientation] * 10
+    return PlyStack(
+        [Ply(material=et_0900, orientation=ang) for ang in orientation], multiple=10
+    )
 
 
 @pt.fixture
 def et_0900_20x(et_0900_20x_input):
-    return SingleSkinLaminate(plies_unpositioned=et_0900_20x_input, name="et_0900_20x")
+    return SingleSkinLaminate(ply_stack=et_0900_20x_input, name="et_0900_20x")
 
 
 @pt.fixture
@@ -64,13 +72,15 @@ def et_0900_20x_exp():
 @pt.fixture
 def et_0900_20x_45deg_input(et_0900):
     orientation = [45, -45]
-    return [Ply(material=et_0900, orientation=ang) for ang in orientation] * 10
+    return PlyStack(
+        [Ply(material=et_0900, orientation=ang) for ang in orientation], multiple=10
+    )
 
 
 @pt.fixture
 def et_0900_20x_45deg(et_0900_20x_45deg_input):
     return SingleSkinLaminate(
-        name="et_0900_20x_45deg", plies_unpositioned=et_0900_20x_45deg_input
+        name="et_0900_20x_45deg", ply_stack=et_0900_20x_45deg_input
     )
 
 
@@ -104,15 +114,16 @@ def et_0900_20x_45deg_exp():
 @pt.fixture
 def sandwich_laminate_skin_input(et_0900):
     orientation = [0, 90]
-    lam = [Ply(material=et_0900, orientation=ang) for ang in orientation] * 5
-
+    lam = PlyStack(
+        [Ply(material=et_0900, orientation=ang) for ang in orientation], multiple=5
+    )
     return lam
 
 
 @pt.fixture
 def sandwich_laminate_skin(sandwich_laminate_skin_input):
     return SingleSkinLaminate(
-        name="sandwich_laminate_skin", plies_unpositioned=sandwich_laminate_skin_input
+        name="sandwich_laminate_skin", ply_stack=sandwich_laminate_skin_input
     )
 
 
@@ -120,8 +131,8 @@ def sandwich_laminate_skin(sandwich_laminate_skin_input):
 def sandwich_laminate(sandwich_laminate_skin_input, H80_20mm):
     return SandwichLaminate(
         name="sandwich_laminate",
-        outter_laminate_ply_list=sandwich_laminate_skin_input,
-        inner_laminate_ply_list=sandwich_laminate_skin_input,
+        outter_laminate_ply_stack=sandwich_laminate_skin_input,
+        inner_laminate_ply_stack=sandwich_laminate_skin_input,
         core=H80_20mm,
     )
 
