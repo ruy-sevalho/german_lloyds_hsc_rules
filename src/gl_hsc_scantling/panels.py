@@ -4,15 +4,18 @@ Created on Wed Mar 31 12:28:58 2021
 
 @author: ruy
 """
+from dataclasses import dataclass, field
 from enum import Enum
 
 import numpy as np
-from .dc import dataclass
-from dataclasses import fields
+from dataclass_tools.tools import DESERIALIZER_OPTIONS, DeSerializerOptions
 
-from .vessel import Vessel
-from .composites import ABCLaminate, SingleSkinLaminate, SandwichLaminate
+from .composites import ABCLaminate, SandwichLaminate, SingleSkinLaminate
+from .named_field import NAMED_FIELD_OPTIONS
 from .structural_model import BoundaryCondition, StructuralModel
+from .vessel import Vessel
+
+LAMINATE_OPTIONS = DeSerializerOptions(subs_by_attr="name")
 
 
 @dataclass
@@ -20,7 +23,7 @@ class Panel(StructuralModel):
 
     dim_x: float
     dim_y: float
-    laminate: ABCLaminate
+    laminate: ABCLaminate = field(metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS})
     curvature_x: float = 0
     curvature_y: float = 0
     bound_cond: BoundaryCondition = BoundaryCondition.FIXED
