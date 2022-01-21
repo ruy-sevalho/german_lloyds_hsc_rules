@@ -9,10 +9,10 @@ from dataclasses import astuple, dataclass, field, fields
 from itertools import chain
 
 import numpy as np
-from dataclass_tools.tools import DESERIALIZER_OPTIONS
+from dataclass_tools.tools import DESERIALIZER_OPTIONS, DeSerializerOptions
 
+from .common_field_options import LAMINATE_OPTIONS, NAMED_FIELD_OPTIONS
 from .composites import ABCLaminate, SandwichLaminate, SingleSkinLaminate
-from .named_field import NAMED_FIELD_OPTIONS
 from .structural_model import BoundaryCondition, StructuralModel
 
 
@@ -306,8 +306,6 @@ class SectionElementListChain(SectionElementList):
 
 @dataclass
 class SectionElementListWithFoot(SectionElementList):
-    name: str
-
     @abc.abstractproperty
     def foot_width(self):
         """Width of stiffener base - counts for attached plate
@@ -355,32 +353,16 @@ class StiffenerSection(SectionElement):
 
 
 @dataclass
-class AttStiffenerSection(StiffenerSection):
-
-    elmt_container: SectionElementListWithFoot
-
-    @property
-    def foot_width(self):
-        return self.elmt_container.foot_width
-
-    @property
-    def name(self):
-        return self.elmt_container.name
-
-
-@dataclass
 class LBar(SectionElementListWithFoot):
     """L bar profile - composed of a web and a flange. Dimensions in m."""
 
-    name: str
-    laminate_web: ABCLaminate = field(
-        metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS}
-    )
+    laminate_web: ABCLaminate = field(metadata={DESERIALIZER_OPTIONS: LAMINATE_OPTIONS})
     dimension_web: float
     laminate_flange: ABCLaminate = field(
-        metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS}
+        metadata={DESERIALIZER_OPTIONS: LAMINATE_OPTIONS}
     )
     dimension_flange: float
+    name: str
 
     @property
     def elmts(self) -> list[Elmt]:
@@ -398,6 +380,32 @@ class LBar(SectionElementListWithFoot):
     @property
     def foot_width(self) -> float:
         return self.elmts[0].sect_elmt.width
+
+
+ELMT_CONTAINER_SUBTYPES = [LBar]
+ELMT_CONTAINER_SUBTYPE_TABLE = {typ.__name__: typ for typ in ELMT_CONTAINER_SUBTYPES}
+ELMT_CONTAINER_OPTIONS = DeSerializerOptions(
+    add_type=True,
+    type_label="section_profile",
+    flatten=True,
+    subtype_table=ELMT_CONTAINER_SUBTYPE_TABLE,
+)
+
+
+@dataclass
+class StiffenerSectionWithFoot(StiffenerSection):
+
+    elmt_container: SectionElementListWithFoot = field(
+        metadata={DESERIALIZER_OPTIONS: ELMT_CONTAINER_OPTIONS}
+    )
+
+    @property
+    def foot_width(self):
+        return self.elmt_container.foot_width
+
+    @property
+    def name(self):
+        return self.elmt_container.name
 
 
 @dataclass
@@ -452,6 +460,11 @@ class PlacedStiffnerSection(SectionElementList):
         ]
 
 
+STIFF_SECTION_OPTIONS = DeSerializerOptions(
+    subs_by_attr="name", subs_collection_name="stiffener_sections"
+)
+
+
 @dataclass
 class Stiffener(StructuralModel):
     """Stiffener beam model, in accordance to C3.8.2.6 and C3.8.4,
@@ -460,19 +473,15 @@ class Stiffener(StructuralModel):
     unsupported plates on each side.
     """
 
-    stiff_section: AttStiffenerSection = field(
-        metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS}
+    stiff_section: StiffenerSectionWithFoot = field(
+        metadata={DESERIALIZER_OPTIONS: STIFF_SECTION_OPTIONS}
     )
     span: float
     spacing_1: float
     spacing_2: float
     stiff_att_plate: int
-    att_plate_1: ABCLaminate = field(
-        metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS}
-    )
-    att_plate_2: ABCLaminate = field(
-        metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS}
-    )
+    att_plate_1: ABCLaminate = field(metadata={DESERIALIZER_OPTIONS: LAMINATE_OPTIONS})
+    att_plate_2: ABCLaminate = field(metadata={DESERIALIZER_OPTIONS: LAMINATE_OPTIONS})
     stiff_att_angle: float = 0
     bound_cond: BoundaryCondition = BoundaryCondition.FIXED
 
