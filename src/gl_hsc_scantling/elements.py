@@ -12,10 +12,20 @@ from enum import Enum
 import numpy as np
 from dataclass_tools.tools import DESERIALIZER_OPTIONS, DeSerializerOptions
 
+from .common_field_options import NAMED_FIELD_OPTIONS
+from .locations import (
+    Bottom,
+    Deck,
+    DeckHouseMainFrontPressure,
+    DeckHouseMainSidePressure,
+    DeckHouseOtherPressure,
+    DeckHousePressure,
+    Side,
+    WetDeck,
+)
 from .locations_abc import Location
-from .named_field import NAMED_FIELD_OPTIONS
 from .panels import Panel
-from .stiffeners import AttStiffenerSection
+from .stiffeners import Stiffener
 from .structural_model import StructuralModel
 from .vessel import Vessel
 
@@ -26,9 +36,37 @@ def _distance(start, end):
 
 MODEL_TYPE_TABLE = {
     Panel.__name__: Panel,
-    AttStiffenerSection.__name__: AttStiffenerSection,
+    Stiffener.__name__: Stiffener,
 }
-MODEL_OPTIONS = DeSerializerOptions(add_type=True, subtype_table=MODEL_TYPE_TABLE)
+MODEL_OPTIONS = DeSerializerOptions(
+    add_type=True,
+    type_label="element type",
+    subtype_table=MODEL_TYPE_TABLE,
+    flatten=True,
+)
+
+LOCATION_TYPES = [
+    Bottom,
+    Side,
+    WetDeck,
+    Deck,
+    DeckHousePressure,
+    DeckHouseMainFrontPressure,
+    DeckHouseMainSidePressure,
+    DeckHouseOtherPressure,
+]
+LOCATION_TYPE_TABLE = {location.name: location for location in LOCATION_TYPES}
+LOCATION_OPTIONS = DeSerializerOptions(
+    add_type=True,
+    type_name=lambda x: x.name,
+    subtype_table=LOCATION_TYPE_TABLE,
+    flatten=True,
+)
+
+
+VESSEL_OPTIONS = DeSerializerOptions(
+    subs_by_attr="name", subs_collection_name="vessels"
+)
 
 
 @dataclass
@@ -38,9 +76,9 @@ class StructuralElement:
     name: str
     x: float
     z: float
-    vessel: Vessel = field(metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS})
+    vessel: Vessel = field(metadata={DESERIALIZER_OPTIONS: VESSEL_OPTIONS})
     model: StructuralModel = field(metadata={DESERIALIZER_OPTIONS: MODEL_OPTIONS})
-    location: Location
+    location: Location = field(metadata={DESERIALIZER_OPTIONS: LOCATION_OPTIONS})
 
     @property
     def z_baseline(self):
