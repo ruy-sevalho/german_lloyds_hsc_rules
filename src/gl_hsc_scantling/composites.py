@@ -10,12 +10,13 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from functools import cache
+from re import I
 from typing import Optional, Protocol, Tuple
 
 import numpy as np
 from dataclass_tools.tools import DESERIALIZER_OPTIONS, DeSerializerOptions
 
-from .named_field import NAMED_FIELD_OPTIONS
+from .common_field_options import NAMED_FIELD_OPTIONS
 from .report import (
     Criteria,
     Data,
@@ -277,7 +278,9 @@ class CoreMat:
     core_type: str = "solid"
 
 
-CORE_MATERIAL_OPTIONS = DeSerializerOptions(subs_by_attr="name")
+CORE_MATERIAL_OPTIONS = DeSerializerOptions(
+    subs_by_attr="name", subs_collection_name="core_materials"
+)
 
 
 @dataclass
@@ -291,7 +294,9 @@ class Core:
     thickness: float
 
 
-PLY_MATERIAL_OPTIONS = DeSerializerOptions(subs_by_attr="name")
+PLY_MATERIAL_OPTIONS = DeSerializerOptions(
+    subs_by_attr="name", subs_collection_name="laminas"
+)
 
 
 @dataclass
@@ -706,21 +711,24 @@ class PlyStack:
         if self.multiple:
             list_of_plies *= self.multiple
         if self.symmetric:
-            for item in list_of_plies.reverse():
+            for item in reversed(list_of_plies):
                 list_of_plies.append(item)
         if self.antisymmetric:
-            for item in list_of_plies.reverse():
+            for item in reversed(list_of_plies):
                 item.orientation *= -1
                 list_of_plies.append(item)
 
         return list_of_plies
 
 
+PLY_STACK_OPTIONS = DeSerializerOptions(flatten=True)
+
+
 @dataclass
 class SingleSkinLaminate(ABCLaminate):
 
     name: str
-    ply_stack: PlyStack
+    ply_stack: PlyStack = field(metadata={DESERIALIZER_OPTIONS: PLY_STACK_OPTIONS})
 
     @property
     def thick_array(self) -> float:
@@ -747,18 +755,16 @@ class SingleSkinLaminate(ABCLaminate):
         ]
 
 
+CORE_OPTIONS = DeSerializerOptions(subs_by_attr="name", subs_collection_name="cores")
+
+
 @dataclass
 class SandwichLaminate(ABCLaminate):
-    """Laminate sandwich multiply material. plies_materials should be dict
-    with plies used in laminate. plies_list should be list of dicts, in the
-    form {'material': string of material name, 'orientation': angle(deg).
-    corresponding to the definition of each ply. Only one ply should be of the
-    Core type.
-    """
+    """Laminate sandwich multiply material."""
 
     name: str
     outter_laminate_ply_stack: PlyStack
-    core: Core = field(metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS})
+    core: Core = field(metadata={DESERIALIZER_OPTIONS: CORE_OPTIONS})
     inner_laminate_ply_stack: PlyStack = None
     symmetric: bool = False
     antisymmetric: bool = False
@@ -794,7 +800,9 @@ class SandwichLaminate(ABCLaminate):
             inner_plies_stack = PlyStack(
                 plies=[
                     Ply(material=material, orientation=orientation)
-                    for material, orientation in self.outter_laminate_ply_stack.stack.reverse()
+                    for material, orientation in reversed(
+                        self.outter_laminate_ply_stack.stack
+                    )
                 ]
             )
 
@@ -802,7 +810,9 @@ class SandwichLaminate(ABCLaminate):
             inner_plies_stack = PlyStack(
                 plies=[
                     Ply(material=material, orientation=-orientation)
-                    for material, orientation in self.outter_laminate_ply_stack.stack.reverse()
+                    for material, orientation in reversed(
+                        self.outter_laminate_ply_stack.stack
+                    )
                 ]
             )
 
