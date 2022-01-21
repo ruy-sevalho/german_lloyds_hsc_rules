@@ -5,19 +5,13 @@
  """
 
 import pytest as pt
+from dataclass_tools.tools import deserialize_dataclass
 from gl_hsc_scantling.constructors import panel_element_constructor
-
-from gl_hsc_scantling.shortcut import (
-    Panel,
-    StructuralElement,
-    Bottom,
-    Side,
-)
-
-from .fixtures_vessel import *
-from .fixtures_laminates import *
+from gl_hsc_scantling.shortcut import Bottom, Panel, Side, StructuralElement
 
 from .exp_output import ExpPanel
+from .fixtures_laminates import *
+from .fixtures_vessel import *
 
 
 @pt.fixture
@@ -164,9 +158,10 @@ def panel_side_01_exp():
 def panel_wet_deck_01_input():
     return {
         "name": "Wet Deck Panel 02",
+        "vessel": "catamaran",
         "x": 6.5,
         "z": 0.2,
-        "element type": "panel",
+        "element type": "Panel",
         "dim_x": 1,
         "dim_y": 1,
         "laminate": "et_0900_20x",
@@ -178,8 +173,16 @@ def panel_wet_deck_01_input():
 
 @pt.fixture
 def panel_wet_deck_01(vessel_ex1, et_0900_20x, panel_wet_deck_01_input):
-    laminates = {et_0900_20x.name: et_0900_20x}
-    return panel_element_constructor(vessel_ex1, laminates, **panel_wet_deck_01_input)
+    collections = {
+        "laminates": {et_0900_20x.name: et_0900_20x},
+        "vessels": {vessel_ex1.name: vessel_ex1},
+    }
+    return deserialize_dataclass(
+        dct=panel_wet_deck_01_input,
+        dataclass=StructuralElement,
+        build_instance=True,
+        dict_of_collections=collections,
+    )
 
 
 @pt.fixture
@@ -194,9 +197,10 @@ def panel_wet_deck_01_exp():
 def panel_wet_deck_02_input():
     return {
         "name": "Wet Deck Panel 02",
+        "vessel": "catamaran",
         "x": 7.5,
         "z": 0.2,
-        "element type": "panel",
+        "element type": "Panel",
         "dim_x": 1,
         "dim_y": 1,
         "laminate": "et_0900_20x",
@@ -208,8 +212,16 @@ def panel_wet_deck_02_input():
 
 @pt.fixture
 def panel_wet_deck_02(vessel_ex1, et_0900_20x, panel_wet_deck_02_input):
-    laminates = {et_0900_20x.name: et_0900_20x}
-    return panel_element_constructor(vessel_ex1, laminates, **panel_wet_deck_02_input)
+    collections = {
+        "laminates": {et_0900_20x.name: et_0900_20x},
+        "vessels": {vessel_ex1.name: vessel_ex1},
+    }
+    return deserialize_dataclass(
+        dct=panel_wet_deck_02_input,
+        dataclass=StructuralElement,
+        build_instance=True,
+        dict_of_collections=collections,
+    )
 
 
 @pt.fixture
@@ -223,9 +235,10 @@ def panel_wet_deck_02_exp():
 def panel_deck_01_input():
     return {
         "name": "Deck Panel 01",
+        "vessel": "catamaran",
         "x": 8,
         "z": 0.5,
-        "element type": "panel",
+        "element type": "Panel",
         "dim_x": 1,
         "dim_y": 1,
         "laminate": "et_0900_20x",
@@ -235,8 +248,16 @@ def panel_deck_01_input():
 
 @pt.fixture
 def panel_deck_01(vessel_ex1, et_0900_20x, panel_deck_01_input):
-    laminates = {et_0900_20x.name: et_0900_20x}
-    return panel_element_constructor(vessel_ex1, laminates, **panel_deck_01_input)
+    collections = {
+        "laminates": {et_0900_20x.name: et_0900_20x},
+        "vessels": {vessel_ex1.name: vessel_ex1},
+    }
+    return deserialize_dataclass(
+        dct=panel_deck_01_input,
+        dataclass=StructuralElement,
+        build_instance=True,
+        dict_of_collections=collections,
+    )
 
 
 @pt.fixture
@@ -248,9 +269,10 @@ def panel_deck_01_exp():
 def panel_deck_02_input():
     return {
         "name": "Deck Panel 02",
+        "vessel": "catamaran",
         "x": 8,
         "z": 2.5,
-        "element type": "panel",
+        "element type": "Panel",
         "dim_x": 1,
         "dim_y": 1,
         "laminate": "et_0900_20x",
@@ -260,8 +282,16 @@ def panel_deck_02_input():
 
 @pt.fixture
 def panel_deck_02(vessel_ex1, et_0900_20x, panel_deck_02_input):
-    laminates = {et_0900_20x.name: et_0900_20x}
-    return panel_element_constructor(vessel_ex1, laminates, **panel_deck_02_input)
+    collections = {
+        "laminates": {et_0900_20x.name: et_0900_20x},
+        "vessels": {vessel_ex1.name: vessel_ex1},
+    }
+    return deserialize_dataclass(
+        dct=panel_deck_02_input,
+        dataclass=StructuralElement,
+        build_instance=True,
+        dict_of_collections=collections,
+    )
 
 
 @pt.fixture
@@ -273,9 +303,10 @@ def panel_deck_02_exp():
 def panel_deck_03_input():
     return {
         "name": "Deck Panel 03",
+        "vessel": "catamaran",
         "x": 8,
         "z": 4,
-        "element type": "panel",
+        "element type": "Panel",
         "dim_x": 1,
         "dim_y": 1,
         "laminate": "et_0900_20x",
@@ -285,8 +316,16 @@ def panel_deck_03_input():
 
 @pt.fixture
 def panel_deck_03(vessel_ex1, et_0900_20x, panel_deck_03_input):
-    laminates = {et_0900_20x.name: et_0900_20x}
-    return panel_element_constructor(vessel_ex1, laminates, **panel_deck_03_input)
+    collections = {
+        "laminates": {et_0900_20x.name: et_0900_20x},
+        "vessels": {vessel_ex1.name: vessel_ex1},
+    }
+    return deserialize_dataclass(
+        dct=panel_deck_03_input,
+        dataclass=StructuralElement,
+        build_instance=True,
+        dict_of_collections=collections,
+    )
 
 
 @pt.fixture

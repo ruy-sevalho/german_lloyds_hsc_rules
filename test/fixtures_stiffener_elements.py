@@ -1,15 +1,18 @@
 import pytest as pt
-from gl_hsc_scantling.shortcut import stiffener_element_constructor, Stiffener
-from .fixtures_stiffener_sections import *
-from .fixtures_laminates import *
-from .fixtures_vessel import *
+from dataclass_tools.tools import deserialize_dataclass
+from gl_hsc_scantling.shortcut import Stiffener, stiffener_element_constructor
+
 from .exp_output import ExpStiffenerElement, ExpStiffenerSection
+from .fixtures_laminates import *
+from .fixtures_stiffener_sections import *
+from .fixtures_vessel import *
 
 
 @pt.fixture
 def stiffener_bottom_01_input():
     return {
         "name": "Bottom Stiffener 01",
+        "vessel": "catamaran",
         "x": 8,
         "z": -0.3,
         "element_type": "stiffener",
@@ -51,6 +54,7 @@ def stiffener_bottom_01_exp():
 def stiffener_side_01_input():
     return {
         "name": "Side Stiffener 01",
+        "vessel": "catamaran",
         "x": 4,
         "z": 0.5,
         "element_type": "stiffener",

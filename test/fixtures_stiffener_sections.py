@@ -1,14 +1,17 @@
 import pytest as pt
-from gl_hsc_scantling.shortcut import stiffener_section_constructor
-from .fixtures_laminates import *
+from dataclass_tools.tools import deserialize_dataclass
+from gl_hsc_scantling.stiffeners import StiffenerSectionWithFoot
+
 from .exp_output import ExpStiffenerSection
+from .fixtures_laminates import *
+
 
 # Comment
 @pt.fixture
 def lbar_01_input():
     return {
         "name": "lbar_01",
-        "section_profile": "lbar",
+        "section_profile": "LBar",
         "laminate_web": "et_0900_20x_45deg",
         "dimension_web": 0.05,
         "laminate_flange": "et_0900_20x",
@@ -18,8 +21,15 @@ def lbar_01_input():
 
 @pt.fixture
 def lbar_01(lbar_01_input, et_0900_20x, et_0900_20x_45deg):
-    laminates = {lam.name: lam for lam in [et_0900_20x, et_0900_20x_45deg]}
-    return stiffener_section_constructor(laminates=laminates, **lbar_01_input)
+    collections = {
+        "laminates": {lam.name: lam for lam in [et_0900_20x, et_0900_20x_45deg]}
+    }
+    return deserialize_dataclass(
+        dct=lbar_01_input,
+        dataclass=StiffenerSectionWithFoot,
+        dict_of_collections=collections,
+        build_instance=True,
+    )
 
 
 @pt.fixture

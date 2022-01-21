@@ -5,14 +5,13 @@
  """
 
 import pytest as pt
-
 from gl_hsc_scantling.shortcut import (
-    LaminaPartsWoven,
-    LaminaPartsCSM,
-    LaminaMonolith,
     Lamina,
-    lamina_constructor,
+    LaminaMonolith,
+    LaminaPartsCSM,
+    LaminaPartsWoven,
 )
+
 from .exp_output import ExpPly
 from .fixtures_laminates import *
 
