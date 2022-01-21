@@ -4,19 +4,21 @@ Created on Wed Mar 31 12:19:42 2021
 
 @author: ruy
 """
-from abc import ABC, abstractmethod
-from enum import Enum
-from functools import cached_property
-from typing import List
+from __future__ import annotations
+
+from abc import abstractmethod
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .elements import StructuralElement
+
+from dataclasses import dataclass
 
 import numpy as np
 
-from .dc import dataclass
-from .elements import StructuralElement
 from .locations_abc import Location, Pressure
 from .panels import Panel
 from .stiffeners import Stiffener
-from .vessel import Vessel
 
 
 # Helper functions, all 'pure'.
@@ -301,7 +303,7 @@ class Sea(Pressure):
         )
 
 
-class Impact(Pressure):
+class ImpactPressure(Pressure):
     """C3.5.3 Impact pressure on the bottom hull parameters and calculation."""
 
     name = "impact"
@@ -373,7 +375,7 @@ class Impact(Pressure):
         pass
 
 
-class ImpactBottom(Impact):
+class ImpactBottomPressure(ImpactPressure):
     """C3.5.3 Impact pressure on the bottom of hull"""
 
     _x_lim_min_acg_inf = 0.7
@@ -405,7 +407,7 @@ class ImpactBottom(Impact):
         )
 
 
-class ImpactWetDeck(Impact):
+class ImpactWetDeckPressure(ImpactPressure):
     """C3.5.4 Impact pressure on wet deck"""
 
     _x_lim_min_acg_inf = 0.8
@@ -458,7 +460,7 @@ class DeckPressure(Pressure):
         return _pressure_deck_f(z_waterline=elmt.z_waterline)
 
 
-class DeckHouse(Pressure):
+class DeckHousePressure(Pressure):
     """C3.5.5.5 Sea pressures on deckhouses."""
 
     name = "deckhouse"
@@ -489,21 +491,21 @@ class DeckHouse(Pressure):
         pass
 
 
-class DeckHouseMainFront(DeckHouse):
+class DeckHouseMainFrontPressure(DeckHousePressure):
     name = "deckhouse main front"
 
     def _pressure_walls_min(self, elmt):
         return _pressure_walls_min_f(length=elmt.vessel.lenght)
 
 
-class DeckHouseMainSide(DeckHouse):
+class DeckHouseMainSidePressure(DeckHousePressure):
     name = "deckhouse main side"
 
     def _pressure_walls_min(self, elmt):
         return 4
 
 
-class DeckHouseOther(DeckHouse):
+class DeckHouseOtherPressure(DeckHousePressure):
     name = "deckhouse other"
 
     def _pressure_walls_min(self, elmt):
@@ -514,19 +516,26 @@ class DeckHouseOther(DeckHouse):
 @dataclass
 class Bottom(Location):
     deadrise: float
+    name = "bottom"
 
     @property
     def _pressures(self):
-        return [Sea(), ImpactBottom()]
+        return [Sea(), ImpactBottomPressure()]
 
 
+@dataclass
 class Side(Location):
+    name = "side"
+
     @property
     def _pressures(self):
         return [Sea()]
 
 
+@dataclass
 class Deck(Location):
+    name = "deck"
+
     @property
     def _pressures(self):
         return [DeckPressure()]
@@ -537,33 +546,40 @@ class WetDeck(Location):
     deadrise: float
     air_gap: float
 
+    name = "wet deck"
+
     @property
     def _pressures(self):
-        return [Sea(), ImpactWetDeck()]
+        return [Sea(), ImpactWetDeckPressure()]
 
 
 @dataclass
 class DeckHouseMainFront(Location):
+
     deckhouse_breadth: float
+
+    name = "deckhouse main front"
 
     @property
     def _pressures(self):
-        return [DeckHouseMainFront()]
+        return [DeckHouseMainFrontPressure()]
 
 
 @dataclass
 class DeckHouseMainSide(Location):
     deckhouse_breadth: float
+    name = "deckhouse main side"
 
     @property
     def _pressures(self):
-        return [DeckHouseMainSide()]
+        return [DeckHouseMainSidePressure()]
 
 
 @dataclass
 class DeckHouseOther(Location):
     deckhouse_breadth: float
+    name = "deckhouse other"
 
     @property
     def _pressures(self):
-        return [DeckHouseOther()]
+        return [DeckHouseOtherPressure()]
