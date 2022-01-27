@@ -6,7 +6,6 @@
 
 import pytest as pt
 from dataclass_tools.tools import deserialize_dataclass
-from gl_hsc_scantling.constructors import panel_element_constructor
 from gl_hsc_scantling.shortcut import Bottom, Panel, Side, StructuralElement
 
 from .exp_output import ExpPanel
@@ -161,7 +160,7 @@ def panel_wet_deck_01_input():
         "vessel": "catamaran",
         "x": 6.5,
         "z": 0.2,
-        "element type": "Panel",
+        "element_type": "Panel",
         "dim_x": 1,
         "dim_y": 1,
         "laminate": "et_0900_20x",
@@ -200,7 +199,7 @@ def panel_wet_deck_02_input():
         "vessel": "catamaran",
         "x": 7.5,
         "z": 0.2,
-        "element type": "Panel",
+        "element_type": "Panel",
         "dim_x": 1,
         "dim_y": 1,
         "laminate": "et_0900_20x",
@@ -238,7 +237,7 @@ def panel_deck_01_input():
         "vessel": "catamaran",
         "x": 8,
         "z": 0.5,
-        "element type": "Panel",
+        "element_type": "Panel",
         "dim_x": 1,
         "dim_y": 1,
         "laminate": "et_0900_20x",
@@ -272,7 +271,7 @@ def panel_deck_02_input():
         "vessel": "catamaran",
         "x": 8,
         "z": 2.5,
-        "element type": "Panel",
+        "element_type": "Panel",
         "dim_x": 1,
         "dim_y": 1,
         "laminate": "et_0900_20x",
@@ -306,7 +305,7 @@ def panel_deck_03_input():
         "vessel": "catamaran",
         "x": 8,
         "z": 4,
-        "element type": "Panel",
+        "element_type": "Panel",
         "dim_x": 1,
         "dim_y": 1,
         "laminate": "et_0900_20x",

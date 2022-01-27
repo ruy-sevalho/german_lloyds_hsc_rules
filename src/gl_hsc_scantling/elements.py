@@ -40,7 +40,7 @@ MODEL_TYPE_TABLE = {
 }
 MODEL_OPTIONS = DeSerializerOptions(
     add_type=True,
-    type_label="element type",
+    type_label="element_type",
     subtype_table=MODEL_TYPE_TABLE,
     flatten=True,
 )
