@@ -1,6 +1,6 @@
 import pytest as pt
 from dataclass_tools.tools import deserialize_dataclass
-from gl_hsc_scantling.shortcut import Stiffener, stiffener_element_constructor
+from gl_hsc_scantling.elements import StructuralElement
 
 from .exp_output import ExpStiffenerElement, ExpStiffenerSection
 from .fixtures_laminates import *
@@ -15,7 +15,7 @@ def stiffener_bottom_01_input():
         "vessel": "catamaran",
         "x": 8,
         "z": -0.3,
-        "element_type": "stiffener",
+        "element_type": "Stiffener",
         "span": 1,
         "spacing_1": 0.4,
         "spacing_2": 0.4,
@@ -32,8 +32,17 @@ def stiffener_bottom_01_input():
 def stiffener_bottom_01(et_0900_20x, lbar_01, vessel_ex1, stiffener_bottom_01_input):
     laminates = {et_0900_20x.name: et_0900_20x}
     stiff_sections = {lbar_01.name: lbar_01}
-    return stiffener_element_constructor(
-        vessel_ex1, laminates, stiff_sections, **stiffener_bottom_01_input
+    vessels = {vessel_ex1.name: vessel_ex1}
+    collections = {
+        "laminates": laminates,
+        "stiffener_sections": stiff_sections,
+        "vessels": vessels,
+    }
+    return deserialize_dataclass(
+        dct=stiffener_bottom_01_input,
+        dataclass=StructuralElement,
+        build_instance=True,
+        dict_of_collections=collections,
     )
 
 
@@ -57,7 +66,7 @@ def stiffener_side_01_input():
         "vessel": "catamaran",
         "x": 4,
         "z": 0.5,
-        "element_type": "stiffener",
+        "element_type": "Stiffener",
         "span": 1,
         "spacing_1": 0.4,
         "spacing_2": 0.4,
@@ -74,8 +83,17 @@ def stiffener_side_01_input():
 def stiffener_side_01(et_0900_20x, lbar_01, vessel_ex1, stiffener_side_01_input):
     laminates = {et_0900_20x.name: et_0900_20x}
     stiff_sections = {lbar_01.name: lbar_01}
-    return stiffener_element_constructor(
-        vessel_ex1, laminates, stiff_sections, **stiffener_side_01_input
+    vessels = {vessel_ex1.name: vessel_ex1}
+    collections = {
+        "laminates": laminates,
+        "stiffener_sections": stiff_sections,
+        "vessels": vessels,
+    }
+    return deserialize_dataclass(
+        dct=stiffener_side_01_input,
+        dataclass=StructuralElement,
+        build_instance=True,
+        dict_of_collections=collections,
     )
 
 
