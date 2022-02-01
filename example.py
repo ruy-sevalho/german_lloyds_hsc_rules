@@ -1,42 +1,55 @@
-from dataclasses import fields, asdict
+import json
+from dataclasses import asdict, fields
+
+from dataclass_tools.tools import (
+    DeSerializerOptions,
+    PrintMetadata,
+    deserialize_dataclass,
+    serialize_dataclass,
+)
+from pylatex import NoEscape
+
+from gl_hsc_scantling.composites import PlyStack
 from gl_hsc_scantling.report import Data
+from gl_hsc_scantling.report_config import default_report_config
+from gl_hsc_scantling.shortcut import (
+    Bottom,
+    Core,
+    CoreMat,
+    Deck,
+    Fiber,
+    Lamina,
+    LaminaMonolith,
+    LaminaParts,
+    LBar,
+    Matrix,
+    Panel,
+    Ply,
+    SandwichLaminate,
+    Session,
+    Side,
+    SingleSkinLaminate,
+    Stiffener,
+    StructuralElement,
+    Vessel,
+    WetDeck,
+)
 from gl_hsc_scantling.stiffeners import (
-    SectionElementList,
-    StiffenerSection,
-    Point2D,
     Elmt,
+    Point2D,
+    SectionElementList,
     SectionElmtRectHoriz,
     SectionElmtRectVert,
     Stiffener,
+    StiffenerSection,
+    StiffenerSectionWithFoot,
 )
-from gl_hsc_scantling.shortcut import (
-    Vessel,
-    Fiber,
-    Matrix,
-    LaminaPartsWoven,
-    LaminaMonolith,
-    Core_mat,
-    Core,
-    SingleSkinLaminate,
-    SandwichLaminate,
-    Ply,
-    Panel,
-    StructuralElement,
-    Bottom,
-    Side,
-    Deck,
-    WetDeck,
-    Stiffener,
-    LBar,
-    panel_element_constructor,
-    stiffener_section_constructor,
-    stiffener_element_constructor,
-)
-from gl_hsc_scantling.stiffeners import AttStiffenerSection
-from test.fixtures_laminates import et_0900_20x_45deg
+from gl_hsc_scantling.tex import generate_report
+
+session = Session()
 
 vessel = Vessel(
-    name="catamaran",
+    name="Catamaran",
     speed=15,
     displacement=6,
     length=10,
@@ -54,30 +67,18 @@ vessel = Vessel(
     service_range="USR",
 )
 
-vessel2 = Vessel(
-    **{
-        "name": "catamaran",
-        "service_range": "USR",
-        "type_of_service": "PASSENGER",
-        "speed": 15,
-        "displacement": 6,
-        "length": 10,
-        "beam": 6.5,
-        "fwd_perp": 10,
-        "aft_perp": 0,
-        "draft": 0.51,
-        "z_baseline": -0.51,
-        "block_coef": 0.4,
-        "water_plane_area": 10,
-        "lcg": 4,
-        "deadrise_lcg": 12,
-        "dist_hull_cl": 4.6,
-    }
-)
+session.add_stuff(vessel)
 
 polyester = Matrix(
     name="polyester", density=1200, modulus_x=3000000, modulus_xy=1140000, poisson=0.316
 )
+epoxy = Matrix(
+    name="epoxy", density=1400, modulus_x=5000000, modulus_xy=1200000, poisson=0.3
+)
+matrices = [polyester, epoxy]
+session.add_stuff(matrices)
+# session.matrices.update({matrix.name: matrix for matrix in matrices})
+
 e_glass = Fiber(
     name="e_glass",
     density=2540,
@@ -86,28 +87,41 @@ e_glass = Fiber(
     modulus_xy=30000000,
     poisson=0.18,
 )
-e_glass_poly_70_308 = LaminaPartsWoven(
-    name="e_glass_poly_70_308",
-    fiber=e_glass,
-    matrix=polyester,
-    f_mass_cont=0.7,
-    f_area_density=0.304,
-    max_strain_x=0.0035,
-    max_strain_xy=0.007,
+fibers = [e_glass]
+session.add_stuff(fibers)
+# session.fibers.update({fiber.name: fiber for fiber in fibers})
+
+e_glass_poly_70_308 = Lamina(
+    LaminaParts(
+        name="e_glass_poly_70_308",
+        fiber=e_glass,
+        matrix=polyester,
+        f_mass_cont=0.7,
+        f_area_density=0.304,
+        max_strain_x=0.0105,
+        max_strain_xy=0.021,
+    )
 )
-et_0900 = LaminaMonolith(
-    name="et_0900",
-    modulus_x=14336000,
-    modulus_y=39248000,
-    modulus_xy=4530000,
-    poisson_xy=0.09,
-    thickness=0.000228,
-    f_mass_cont=0.7,
-    f_area_density=0.304,
-    max_strain_x=0.035,
-    max_strain_xy=0.07,
+et_0900 = Lamina(
+    LaminaMonolith(
+        name="et_0900",
+        modulus_x=14336000,
+        modulus_y=39248000,
+        modulus_xy=4530000,
+        poisson_xy=0.09,
+        thickness=0.000228,
+        f_mass_cont=0.7,
+        f_area_density=0.304,
+        max_strain_x=0.0105,
+        max_strain_xy=0.021,
+    )
 )
-H80 = Core_mat(
+s = serialize_dataclass(et_0900, printing_format=True, include_names=True)
+laminas = [e_glass_poly_70_308, et_0900]
+session.add_stuff(laminas)
+# session.laminas.update({lamina.name: lamina for lamina in laminas})
+
+H80 = CoreMat(
     name="H80",
     strength_shear=950,
     modulus_shear=23000,
@@ -119,47 +133,68 @@ H80 = Core_mat(
     resin_absorption=0.35,
     core_type="solid",
 )
+core_mats = [H80]
+session.add_stuff(core_mats)
+
 H80_20mm = Core(name="H80_20mm", core_material=H80, thickness=0.02)
+cores = [H80_20mm]
+session.add_stuff(cores)
+
 orientation = [0, 90]
-et_0900_20x_input = [Ply(material=et_0900, orientation=ang) for ang in orientation] * 10
-et_0900_20x = SingleSkinLaminate(
-    name="et_0900_20x", plies_unpositioned=et_0900_20x_input
+et_0900_20x_input = PlyStack(
+    [Ply(material=et_0900, orientation=ang) for ang in orientation], multiple=10
 )
-et_0900_20x_45_input = [
-    Ply(material=et_0900, orientation=ang) for ang in [45, -45]
-] * 10
+et_0900_20x = SingleSkinLaminate(name="et_0900_20x", ply_stack=et_0900_20x_input)
+et_0900_20x_45_input = PlyStack(
+    [Ply(material=et_0900, orientation=ang) for ang in [45, -45]], multiple=10
+)
 et_0900_20x_45 = SingleSkinLaminate(
-    name="et_0900_20x_45", plies_unpositioned=et_0900_20x_45_input
+    name="et_0900_20x_45", ply_stack=et_0900_20x_45_input
 )
-sandwich_skin_input = [
-    Ply(material=et_0900, orientation=ang) for ang in orientation
-] * 5
-sandwich_skin = SingleSkinLaminate(
-    name="Sandwich Laminate Skin", plies_unpositioned=sandwich_skin_input
+sandwich_skin_input = PlyStack(
+    [Ply(material=et_0900, orientation=ang) for ang in orientation], multiple=5
 )
 sandwich_laminate = SandwichLaminate(
     name="Sandwich Laminate",
-    outter_laminate=sandwich_skin,
-    inner_laminate=sandwich_skin,
+    outter_laminate_ply_stack=sandwich_skin_input,
+    inner_laminate_ply_stack=sandwich_skin_input,
     core=H80_20mm,
 )
+laminates = [et_0900_20x, et_0900_20x_45, sandwich_laminate]
+session.add_stuff(laminates)
+
 panel = Panel(dim_x=1, dim_y=1, curvature_x=0.1, curvature_y=0.1, laminate=et_0900_20x)
 bottom = Bottom(deadrise=20)
-# panel_element = StructuralElement(
-#     name="Bottom Panel", x=5, z=-0.3, vessel=vessel, model=panel, location=bottom
-# )
+panel_element = StructuralElement(
+    name="Bottom Panel", x=5, z=-0.3, vessel=vessel, model=panel, location=bottom
+)
+session.add_stuff(panel_element)
+
 lbar_input = {
     "name": "lbar_01",
-    "section_profile": "lbar",
+    "section_profile": "LBar",
     "laminate_web": "et_0900_20x_45",
     "dimension_web": 0.05,
     "laminate_flange": "et_0900_20x",
     "dimension_flange": 0.02,
 }
-
-laminates = {lam.name: lam for lam in [et_0900_20x, et_0900_20x_45]}
-lbar = stiffener_section_constructor(laminates=laminates, **lbar_input)
-
+d = session.session_dict
+lbar_2 = StiffenerSectionWithFoot(
+    elmt_container=LBar(
+        name="lbar",
+        laminate_flange=et_0900_20x,
+        dimension_flange=0.2,
+        laminate_web=et_0900_20x_45,
+        dimension_web=0.05,
+    ),
+)
+lbar = deserialize_dataclass(
+    dct=lbar_input,
+    dataclass=StiffenerSectionWithFoot,
+    dict_of_collections=d,
+    build_instance=True,
+)
+session.add_stuff(lbar)
 
 stiffener = Stiffener(
     stiff_section=lbar,
@@ -172,23 +207,32 @@ stiffener = Stiffener(
     att_plate_2=et_0900_20x,
 )
 wet_deck = WetDeck(deadrise=0, air_gap=0.7)
-# stiffener_element = StructuralElement(
-#     name="Wet Deck 01", x=2, z=0.7, vessel=vessel, model=stiffener, location=wet_deck
-# )
+stiffener_element = StructuralElement(
+    name="Wet Deck 01", x=2, z=0.7, vessel=vessel, model=stiffener, location=wet_deck
+)
+session.add_stuff(stiffener_element)
+
 panel_wet = Panel(
     dim_x=1, dim_y=1, curvature_x=0.1, curvature_y=0.1, laminate=et_0900_20x
 )
-# panel_wet_deck_element = StructuralElement(
-#     name="Wet Deck 01",
-#     x=2,
-#     z=0.7,
-#     vessel=vessel,
-#     model=panel_wet,
-#     location=wet_deck,
-# )
+panel_wet_deck_element = StructuralElement(
+    name="Wet Deck 01",
+    x=2,
+    z=0.7,
+    vessel=vessel,
+    model=panel_wet,
+    location=wet_deck,
+)
+session.add_stuff(panel_wet_deck_element)
+session_serialized = serialize_dataclass(session)
 
-panel = Panel(dim_x=1, dim_y=1, laminate=et_0900_20x)
-bottom = Bottom(deadrise=16)
+with open("session.json", "w") as s:
+    json.dump(session_serialized, s)
+
+loaded_session = Session()
+loaded_session.load_session(session_serialized)
+doc = generate_report(session, config=default_report_config)
+
 # bottom_panel_01 = StructuralElement(
 #     name="Bottom Panel 01",
 #     x=8,
@@ -214,96 +258,3 @@ bottom = Bottom(deadrise=16)
 #     model=panel,
 #     location=Side(),
 # )
-laminates = {lam.name: lam for lam in [et_0900_20x, et_0900_20x_45]}
-stiff_sections = {section.name: section for section in [lbar]}
-
-panel_input = {
-    "name": "Wet Deck Panel 02",
-    "x": 6.5,
-    "z": 0.2,
-    "element type": "panel",
-    "dim_x": 1,
-    "dim_y": 1,
-    "laminate": "et_0900_20x",
-    "location": "wet deck",
-    "deadrise": 16,
-    "air_gap": 0.2,
-}
-stiffener_element_input = {
-    "name": "Bottom Stiffener 01",
-    "x": 8,
-    "z": -0.3,
-    "element type": "panel",
-    "span": 1,
-    "spacing_1": 0.4,
-    "spacing_2": 0.4,
-    "stiff_att_plate": 1,
-    "att_plate_1": "et_0900_20x",
-    "att_plate_2": "et_0900_20x",
-    "stiff_section": "lbar_01",
-    "location": "bottom",
-    "deadrise": 16,
-}
-
-stiffener_element = stiffener_element_constructor(
-    vessel, laminates, stiff_sections, **stiffener_element_input
-)
-stiffener_element_side_01_input = {
-    "name": "Side Stiffener 01",
-    "x": 4,
-    "z": 0.5,
-    "element_type": "stiffener",
-    "span": 1,
-    "spacing_1": 0.4,
-    "spacing_2": 0.4,
-    "stiff_att_plate": 1,
-    "stiff_att_angle": 20,
-    "att_plate_1": "et_0900_20x",
-    "att_plate_2": "et_0900_20x",
-    "stiff_section": "lbar_01",
-    "location": "side",
-}
-
-stiffener_element_side_01 = stiffener_element_constructor(
-    vessel, laminates, stiff_sections, **stiffener_element_side_01_input
-)
-
-panel = panel_element_constructor(vessel, laminates, **panel_input)
-panel_dict = asdict(panel)
-named_fields = [
-    dim.name for dim in fields(panel) if isinstance(getattr(panel, dim.name), Data)
-]
-print(named_fields)
-s = Side()
-
-
-class ExampleStiff:
-    elmts = [
-        Elmt(
-            SectionElmtRectVert(et_0900_20x_45, 0.05),
-            anchor_pt=Point2D(0, 0.00456),
-            angle=20,
-        ),
-        Elmt(),
-    ]
-
-
-def print_section(section: AttStiffenerSection):
-    print(f"bendstiff: {section.bend_stiff()}")
-    print(f"bend_stiff_base: {section.bend_stiff_base()}")
-    print(f"center: {section.center()}")
-
-
-# print_section(lbar)
-
-# def new_func(stiffener: Stiffener):
-#     print(f"Bend stiff: {stiffener.stiff_section_att_plate.bend_stiff()}")
-#     print(f"stiff: {stiffener.stiff_section_att_plate.stiff}")
-#     print(f"z_na: {stiffener.stiff_section_att_plate.z_center()}")
-#     print(f"web stiff: {stiffener.stiff_section_att_plate.shear_stiff}")
-
-
-# print(f"Bend stiff: {stiffener_element.model.stiff_section_att_plate.bend_stiff()}")
-# print(f"stiff: {stiffener_element.model.stiff_section_att_plate.stiff}")
-# print(f"z_na: {stiffener_element.model.stiff_section_att_plate.z_center()}")
-# print(f"web stiff: {stiffener_element.model.stiff_section_att_plate.shear_stiff}")
