@@ -5,7 +5,8 @@ Created on Fri Jul  9 10:46:30 2021
 @author: ruy
 """
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
+
 from pylatex import NoEscape
 
 
@@ -24,6 +25,11 @@ class PrintWrapper:
     value: Any
     names: NamePrint
 
+@dataclass
+class PrintMetadata:
+    names: NamePrint
+    units: Optional[str] = None
+    
 
 METADATA = {
     # Name

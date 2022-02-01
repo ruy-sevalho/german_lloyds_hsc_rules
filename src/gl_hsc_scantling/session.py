@@ -19,7 +19,6 @@ from gl_hsc_scantling.composites import (
     SandwichLaminate,
     SingleSkinLaminate,
 )
-from gl_hsc_scantling.constructors import structural_element_constructor
 from gl_hsc_scantling.elements import StructuralElement
 from gl_hsc_scantling.panels import Panel
 from gl_hsc_scantling.stiffeners import (
@@ -125,21 +124,34 @@ class Session:
             dictionary_of_item_type = self._sort_item(item)
             dictionary_of_item_type.update({item.name: item})
 
-    # def load_single_entry(self, entry):
-    #     table = {
-    #         'laminate': {'SingleSkinLaminate': SingleSkinLaminate, 'SandwichLaminate': SandwichLaminate},
-    #         ''
-    #     }
+    # TODO Finish function
+    def load_single_entry(self, key, value):
+        """Loads a single object from serialized dict, passed as the value argument.
+        The key argument is a stirng that maps to the session colections. Valid keys are:
+        laminate
+        panel
+        stiffener_element
+        stifferner_section
 
-    # key, value = entry
-    # if isinstance(typ, dict):
-    #     typ = typ[value[TYPE_LABEL]]
-    # return deserialize_dataclass(
-    #     dct=value,
-    #     typ=typ,
-    #     build_instance=True,
-    #     dict_of_collections={},
-    # )
+
+        """
+        table = {
+            "laminate": {
+                "SingleSkinLaminate": SingleSkinLaminate,
+                "SandwichLaminate": SandwichLaminate,
+            },
+            "panel": StructuralElement,
+        }
+
+        typ = table[key]
+        if isinstance(typ, dict):
+            typ = typ[value[TYPE_LABEL]]
+        return deserialize_dataclass(
+            dct=value,
+            typ=typ,
+            build_instance=True,
+            dict_of_collections={},
+        )
 
     def _load_dict(self, dict_of_values: dict, typ, dict_of_collections=None):
         return {
@@ -181,7 +193,7 @@ class Session:
         self.laminas = self._load_dict(
             session["laminas"],
             Lamina,
-            dict_of_collections={"fiber": self.fibers, "matrix": self.matrices},
+            dict_of_collections=self.session_dict,
         )
         self.core_materials = self._load_dict(session["core_materials"], CoreMat)
         self.cores = self._load_dict(

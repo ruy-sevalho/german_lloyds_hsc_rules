@@ -5,43 +5,24 @@ Created on Tue Jun 29 09:38:12 2021
 @author: ruy
 """
 from abc import ABC
-from dataclasses import asdict, field
+from dataclasses import dataclass, field
 from enum import Enum
 
 import numpy as np
+from dataclass_tools.tools import (
+    DESERIALIZER_OPTIONS,
+    DeSerializerOptions,
+    NamePrint,
+    PrintMetadata,
+    serialize_dataclass,
+)
 from marshmallow import Schema, fields
 from pylatex import NoEscape, Quantity
 
+from .abrevitation_registry import abv_registry
+from .common_field_options import NAME_OPTIONS
 from .constants import GRAVITY
-from .dc import dataclass
-from .report import (
-    Data,
-    NamePrint,
-    _data_to_dict,
-    _input_data_dict,
-    _print_wrapper_builder,
-)
-
-# from typing import dict
-
-
-# metadata = {
-#     "speed": NamePrint("Speed", "S", "kt"),
-#     "vert_acg": NamePrint(
-#         "Vertical acceleration", NoEscape(r"a\textsubscript{CG}"), "g"
-#     ),
-#     "transverse_bending_moment": NamePrint(
-#         "Transverse bending moment", NoEscape(r"M\textsubscript{bt}"), " kN"
-#     ),
-#     "transverse_torsional_moment": NamePrint(
-#         "Transverse torsional moment", NoEscape(r"M\textsubscript{tt}"), " kN"
-#     ),
-#     "shear_force": NamePrint("Shear force", NoEscape(r"T\textsubscript{bt}"), "kN"),
-#     "length": NamePrint("Length", "L", " m"),
-#     "displacement": NamePrint("Displacement", NoEscape(r"$\Delta$"), " t"),
-#     "beam": NamePrint("Beam", "B", " m"),
-#     "draft": NamePrint("Draft", "H", " m"),
-# }
+from .tex import PrintOptions
 
 
 class TypeOfService(str, Enum):
@@ -72,76 +53,186 @@ class ServiceRange(str, Enum):
     RSA_SW = "RSA (SW)"
 
 
-# vert_acg: float = field(
-#         metadata={
-#             'long': "Vertical acceleration",
-#             'abbr': NoEscape(r"a\textsubscript{CG}"),
-#             'unit': 'g',
-#             'round_precision': 2,
-#         }
-#     )
-
-
-# @dataclass
-# class VesselLoads:
-#     vert_acg: float = field(
-#         metadata={
-#             # 'long': "Vertical acceleration",
-#             # 'abbr': NoEscape(r"a\textsubscript{CG}"),
-#             "unit": "g",
-#             # 'round_precision': 2,
-#         }
-#     )
-#     shear_force: float = field(
-#         metadata={
-#             "long": "Shear force",
-#             "abbr": NoEscape(r"T\textsubscript{bt}"),
-#             "unit": "kN",
-#             "round_precision": 2,
-#         }
-#     )
-#     transverse_bending_moment: float = field(
-#         metadata={
-#             "long": "Transverse bending moment",
-#             "abbr": NoEscape(r"T\textsubscript{bt}"),
-#             "unit": "kN",
-#             "round_precision": 2,
-#         }
-#     )
-#     transverse_torsional_moment: float = field(
-#         metadata={
-#             "long": "Transverse torsional moment",
-#             "abbr": NoEscape(r"M\textsubscript{tt}"),
-#             "unit": "kN",
-#             "round_precision": 2,
-#         }
-#     )
-
-#     # def __post_init__(self):
+SPEED_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(long_name="Speed", abreviation="S", units="kt")
+)
+abv_registry.append(SPEED_OPTIONS)
+DISPLACEMENT_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Displacement", abreviation=NoEscape(r"$\Delta$"), units="t"
+    )
+)
+abv_registry.append(DISPLACEMENT_OPTIONS)
+LENGTH_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(long_name="Length", abreviation="L", units="m")
+)
+abv_registry.append(LENGTH_OPTIONS)
+BEAM_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(long_name="Beam", abreviation="B", units="m")
+)
+abv_registry.append(BEAM_OPTIONS)
+FWD_PERP_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Foward Perpendicular",
+        abreviation=NoEscape(r"F\textsubscript{P}"),
+        units="m",
+    )
+)
+abv_registry.append(FWD_PERP_OPTIONS)
+AFT_PERP_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Aft Perpendicular",
+        abreviation=NoEscape(r"A\textsubscript{P}"),
+        units="m",
+    )
+)
+abv_registry.append(AFT_PERP_OPTIONS)
+DRAFT_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Draft",
+        abreviation="H",
+        units="m",
+    )
+)
+abv_registry.append(DRAFT_OPTIONS)
+Z_BASELINE_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Z from base line",
+        abreviation=NoEscape(r"z\textsubscript{BL}"),
+        units="m",
+    )
+)
+abv_registry.append(Z_BASELINE_OPTIONS)
+BLOCK_COEF_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Block coefficient",
+        abreviation=NoEscape(r"C\textsubscript{B}"),
+        units="",
+    )
+)
+abv_registry.append(BLOCK_COEF_OPTIONS)
+WATER_PLANE_AREA_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Water plane area",
+        abreviation=NoEscape(r"WP\textsubscript{A}"),
+        units="m**2",
+    )
+)
+abv_registry.append(WATER_PLANE_AREA_OPTIONS)
+LCG_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Longitudinal center of gravity",
+        abreviation=NoEscape(r"L\textsubscript{cg}"),
+        units="m",
+    )
+)
+abv_registry.append(LCG_OPTIONS)
+DEADRISE_LCG_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Deadrise at longitudinal center of gravity",
+        abreviation=NoEscape(r"$\alpha$\textsubscript{d}"),
+        units="degree",
+    )
+)
+abv_registry.append(DEADRISE_LCG_OPTIONS)
+DIST_HULL_CL_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Distance between hulls centerline",
+        abreviation=NoEscape(r"B\textsubscript{CL}"),
+        units="m",
+    )
+)
+abv_registry.append(DIST_HULL_CL_OPTIONS)
+TYPE_OF_SERVICE_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Type of service",
+        abreviation="ToS",
+    )
+)
+abv_registry.append(TYPE_OF_SERVICE_OPTIONS)
+SERVICE_RANGE_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Service range",
+        abreviation="SR",
+    )
+)
+abv_registry.append(SERVICE_RANGE_OPTIONS)
+VERT_ACG_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Center of gravity's vertical acceleration",
+        abreviation=NoEscape(r"a\textsubscript{CG}"),
+        units="g",
+    )
+)
+abv_registry.append(VERT_ACG_OPTIONS)
+SHEAR_FORCE_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Transverse shear force",
+        abreviation=NoEscape(r"T\textsubscript{bt}"),
+        units="kN",
+    )
+)
+abv_registry.append(SHEAR_FORCE_OPTIONS)
+TRANSVERSE_BENDING_MOMENT_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Transverse bending moment",
+        abreviation=NoEscape(r"M\textsubscript{bt}"),
+        units="kN*m",
+    )
+)
+abv_registry.append(TRANSVERSE_BENDING_MOMENT_OPTIONS)
+TRANSVERSE_TORSIONAL_MOMENT_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Transverse torsional moment",
+        abreviation=NoEscape(r"M\textsubscript{tt}"),
+        units="kN*m",
+    )
+)
+abv_registry.append(TRANSVERSE_TORSIONAL_MOMENT_OPTIONS)
 
 
 @dataclass
-class Vessel(Data):
+class VesselLoads:
+    vert_acg: float = field(metadata={DESERIALIZER_OPTIONS: VERT_ACG_OPTIONS})
+    shear_force: float = field(metadata={DESERIALIZER_OPTIONS: SHEAR_FORCE_OPTIONS})
+    trans_bend_moment: float = field(
+        metadata={DESERIALIZER_OPTIONS: TRANSVERSE_BENDING_MOMENT_OPTIONS}
+    )
+    trans_tors_moment: float = field(
+        metadata={DESERIALIZER_OPTIONS: TRANSVERSE_TORSIONAL_MOMENT_OPTIONS}
+    )
+
+
+@dataclass
+class Vessel:
     """Vessel for the 2012 German Lloyds High Speed Craft
     scantling rules.
     """
 
-    name: str
-    speed: float
-    displacement: float
-    length: float
-    beam: float
-    fwd_perp: float
-    aft_perp: float
-    draft: float
-    z_baseline: float
-    block_coef: float
-    water_plane_area: float
-    lcg: float
-    deadrise_lcg: float
-    dist_hull_cl: float
-    type_of_service: TypeOfService = TypeOfService.PASSENGER
-    service_range: ServiceRange = ServiceRange.USR
+    name: str = field(metadata={DESERIALIZER_OPTIONS: NAME_OPTIONS})
+    speed: float = field(metadata={DESERIALIZER_OPTIONS: SPEED_OPTIONS})
+    displacement: float = field(metadata={DESERIALIZER_OPTIONS: DISPLACEMENT_OPTIONS})
+    length: float = field(metadata={DESERIALIZER_OPTIONS: LENGTH_OPTIONS})
+    beam: float = field(metadata={DESERIALIZER_OPTIONS: BEAM_OPTIONS})
+    fwd_perp: float = field(metadata={DESERIALIZER_OPTIONS: FWD_PERP_OPTIONS})
+    aft_perp: float = field(metadata={DESERIALIZER_OPTIONS: AFT_PERP_OPTIONS})
+    draft: float = field(metadata={DESERIALIZER_OPTIONS: DRAFT_OPTIONS})
+    z_baseline: float = field(metadata={DESERIALIZER_OPTIONS: Z_BASELINE_OPTIONS})
+    block_coef: float = field(metadata={DESERIALIZER_OPTIONS: BLOCK_COEF_OPTIONS})
+    water_plane_area: float = field(
+        metadata={DESERIALIZER_OPTIONS: WATER_PLANE_AREA_OPTIONS}
+    )
+    lcg: float = field(metadata={DESERIALIZER_OPTIONS: LCG_OPTIONS})
+    deadrise_lcg: float = field(metadata={DESERIALIZER_OPTIONS: DEADRISE_LCG_OPTIONS})
+    dist_hull_cl: float = field(metadata={DESERIALIZER_OPTIONS: DIST_HULL_CL_OPTIONS})
+    type_of_service: TypeOfService = field(
+        metadata={DESERIALIZER_OPTIONS: TYPE_OF_SERVICE_OPTIONS},
+        default=TypeOfService.PASSENGER,
+    )
+    service_range: ServiceRange = field(
+        metadata={DESERIALIZER_OPTIONS: SERVICE_RANGE_OPTIONS},
+        default=ServiceRange.USR,
+    )
 
     # Table C3.3.1
     @property
@@ -222,7 +313,13 @@ class Vessel(Data):
 
     @property
     def loads_asdict(self):
-        return _data_to_dict(self, self.loads_names)
+        loads = VesselLoads(
+            vert_acg=self.vert_acg,
+            shear_force=self.transverse_shear_force,
+            trans_bend_moment=self.transverse_bending_moment,
+            trans_tors_moment=self.transverse_torsional_moment,
+        )
+        return serialize_dataclass(loads, printing_format=True, include_names=True)
 
     @property
     def max_wave_height(self):
@@ -266,3 +363,42 @@ class Vessel(Data):
     @property
     def coef_kh(self):
         return self.coef_k ** 0.35 * ((1 / self.coef_k ** 2 - 0.11) ** 2 + 1) ** 0.5
+
+    def input_print_options(
+        self,
+        name: PrintOptions = PrintOptions(),
+        speed: PrintOptions = PrintOptions(),
+        displacement: PrintOptions = PrintOptions(),
+        length: PrintOptions = PrintOptions(),
+        beam: PrintOptions = PrintOptions(),
+        fwd_perp: PrintOptions = PrintOptions(),
+        aft_perp: PrintOptions = PrintOptions(),
+        draft: PrintOptions = PrintOptions(),
+        z_baseline: PrintOptions = PrintOptions(),
+        block_coef: PrintOptions = PrintOptions(),
+        water_plane_area: PrintOptions = PrintOptions(),
+        lcg: PrintOptions = PrintOptions(),
+        deadrise_lcg: PrintOptions = PrintOptions(round_precision=1),
+        dist_hull_cl: PrintOptions = PrintOptions(),
+        type_of_service: PrintOptions = PrintOptions(),
+        service_range: PrintOptions = PrintOptions(),
+    ):
+        table = {
+            "name": name,
+            "speed": speed,
+            "displacement": displacement,
+            "length": length,
+            "beam": beam,
+            "fwd_perp": fwd_perp,
+            "aft_perp": aft_perp,
+            "draft": draft,
+            "z_baseline": z_baseline,
+            "block_coef": block_coef,
+            "water_plane_area": water_plane_area,
+            "lcg": lcg,
+            "deadrise_lcg": deadrise_lcg,
+            "dist_hull_cl": dist_hull_cl,
+            "type_of_service": type_of_service,
+            "service_range": service_range,
+        }
+        return table

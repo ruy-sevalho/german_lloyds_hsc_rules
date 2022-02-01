@@ -5,18 +5,16 @@ Created on Mon Jun 14 08:30:37 2021
 @author: ruy
 """
 # from collections import namedtuple
-# from dataclasses import dataclass
-from typing import Any, List
+from dataclasses import dataclass, fields
 
 import numpy as np
 import pylatex
-from pylatex import NoEscape, Quantity
 import quantities as pq
-from .dc import dataclass
-from marshmallow import fields, Schema
+from marshmallow import Schema, fields
+from pylatex import NoEscape, Quantity
+from dataclass_tools.tools import serialize_dataclass
 
-from .metadata import METADATA, PrintWrapper, NamePrint
-
+from .metadata import METADATA, NamePrint, PrintWrapper
 
 pylatex.quantities.UNIT_NAME_TRANSLATIONS.update(
     {"nautical_miles_per_hour": "kt", "arcdegree": "degree", "p": "pascal"}
@@ -37,6 +35,7 @@ def _print_wrapper_builder(value, **metadata):
 
 
 def _data_to_dict(obj, names: list[str], metadata: dict = METADATA):
+    fields_ = fields(obj)
     # metadata.update({"name": {"names": NamePrint("Name", "Name")}})
     return {
         name: _print_wrapper_builder(getattr(obj, name), **metadata[name])

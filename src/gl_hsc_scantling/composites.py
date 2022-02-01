@@ -8,23 +8,34 @@ Created on Thu Aug  6 11:49:36 2020
 from abc import ABC, abstractproperty
 from copy import deepcopy
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import Enum
 from functools import cache
-from re import I
 from typing import Optional, Protocol, Tuple
 
 import numpy as np
-from dataclass_tools.tools import DESERIALIZER_OPTIONS, DeSerializerOptions
-
-from .common_field_options import NAMED_FIELD_OPTIONS
-from .report import (
-    Criteria,
-    Data,
-    NamePrint,
-    _data_to_dict,
-    _input_data_dict,
-    _print_wrapper_builder,
+from dataclass_tools.tools import (
+    DESERIALIZER_OPTIONS,
+    DeSerializerOptions,
+    PrintMetadata,
 )
+
+from .common_field_options import (
+    DENSITY_OPTIONS,
+    F_AREA_DENSITY_OPTIONS,
+    F_MASS_CONT_OPTIONS,
+    FIBER_OPTIONS,
+    MATRIX_OPTIONS,
+    MAX_STRAIN_X_OPTIONS,
+    MAX_STRAIN_XY_OPTIONS,
+    MODULUS_X_OPTIONS,
+    MODULUS_XY_OPTIONS,
+    MODULUS_Y_OPTIONS,
+    NAME_OPTIONS,
+    POISSON_OPTIONS,
+    POISSON_XY_OPTIONS,
+    THICKNESS_OPTIONS,
+)
+from .report import Criteria
 
 
 def _matrix_inv(matrix) -> np.ndarray:
@@ -48,23 +59,23 @@ class FiberArregment(str, Enum):
 class Matrix:
     """Generic matrix - resins -  material"""
 
-    name: str
-    density: float
-    modulus_x: float
-    modulus_xy: float
-    poisson: float
+    name: str = field(metadata={DESERIALIZER_OPTIONS: NAME_OPTIONS})
+    density: float = field(metadata={DESERIALIZER_OPTIONS: DENSITY_OPTIONS})
+    modulus_x: float = field(metadata={DESERIALIZER_OPTIONS: MODULUS_X_OPTIONS})
+    modulus_xy: float = field(metadata={DESERIALIZER_OPTIONS: MODULUS_XY_OPTIONS})
+    poisson: float = field(metadata={DESERIALIZER_OPTIONS: POISSON_OPTIONS})
 
 
 @dataclass
 class Fiber:
     """Generic fiber material"""
 
-    name: str
-    density: float
-    modulus_x: float
-    modulus_y: float
-    modulus_xy: float
-    poisson: float
+    name: str = field(metadata={DESERIALIZER_OPTIONS: NAME_OPTIONS})
+    density: float = field(metadata={DESERIALIZER_OPTIONS: DENSITY_OPTIONS})
+    modulus_x: float = field(metadata={DESERIALIZER_OPTIONS: MODULUS_X_OPTIONS})
+    modulus_y: float = field(metadata={DESERIALIZER_OPTIONS: MODULUS_Y_OPTIONS})
+    modulus_xy: float = field(metadata={DESERIALIZER_OPTIONS: MODULUS_XY_OPTIONS})
+    poisson: float = field(metadata={DESERIALIZER_OPTIONS: POISSON_OPTIONS})
 
 
 class LaminaData(Protocol):
@@ -86,32 +97,73 @@ class LaminaData(Protocol):
 class LaminaMonolith:
     """Single lamina externally defiened properties"""
 
-    name: str
-    modulus_x: float
-    modulus_y: float
-    modulus_xy: float
-    poisson_xy: float
-    thickness: float
-    f_mass_cont: float
-    f_area_density: float
-    max_strain_x: float
-    max_strain_xy: float
+    name: str = field(metadata={DESERIALIZER_OPTIONS: NAME_OPTIONS})
+    modulus_x: float = field(metadata={DESERIALIZER_OPTIONS: MODULUS_X_OPTIONS})
+    modulus_y: float = field(metadata={DESERIALIZER_OPTIONS: MODULUS_Y_OPTIONS})
+    modulus_xy: float = field(metadata={DESERIALIZER_OPTIONS: MODULUS_XY_OPTIONS})
+    poisson_xy: float = field(metadata={DESERIALIZER_OPTIONS: POISSON_XY_OPTIONS})
+    thickness: float = field(metadata={DESERIALIZER_OPTIONS: THICKNESS_OPTIONS})
+    f_mass_cont: float = field(metadata={DESERIALIZER_OPTIONS: F_MASS_CONT_OPTIONS})
+    f_area_density: float = field(
+        metadata={DESERIALIZER_OPTIONS: F_AREA_DENSITY_OPTIONS}
+    )
+    max_strain_x: float = field(metadata={DESERIALIZER_OPTIONS: MAX_STRAIN_X_OPTIONS})
+    max_strain_xy: float = field(metadata={DESERIALIZER_OPTIONS: MAX_STRAIN_XY_OPTIONS})
+
+
+class ClothType(str, Enum):
+    WOVEN = "WOVEN"
+    CSM = "CSM"
+
+
+CLOTH_TYPE_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(long_name="Cloth type", abreviation="cloth")
+)
 
 
 @dataclass
-class LaminaPartsWoven:
-    """Single lamina made of woven cloth - prop caculated from fiber and
-    matrix, in accordance to C3.8.2 Elasto-mechanical properties
+class LaminaParts:
+    """Single lamina made of woven cloth or csm (chopped stranded mat) - prop caculated
+    from fiber and  matrix, in accordance to C3.8.2 Elasto-mechanical properties
     of laminated structures.
     """
 
-    name: str
-    fiber: Fiber = field(metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS})
-    matrix: Matrix = field(metadata={DESERIALIZER_OPTIONS: NAMED_FIELD_OPTIONS})
-    f_mass_cont: float
-    f_area_density: float
-    max_strain_x: float
-    max_strain_xy: float
+    name: str = field(metadata={DESERIALIZER_OPTIONS: NAME_OPTIONS})
+    fiber: Fiber = field(metadata={DESERIALIZER_OPTIONS: FIBER_OPTIONS})
+    matrix: Matrix = field(metadata={DESERIALIZER_OPTIONS: MATRIX_OPTIONS})
+    f_mass_cont: float = field(metadata={DESERIALIZER_OPTIONS: F_MASS_CONT_OPTIONS})
+    f_area_density: float = field(
+        metadata={DESERIALIZER_OPTIONS: F_AREA_DENSITY_OPTIONS}
+    )
+    max_strain_x: float = field(metadata={DESERIALIZER_OPTIONS: MAX_STRAIN_X_OPTIONS})
+    max_strain_xy: float = field(metadata={DESERIALIZER_OPTIONS: MAX_STRAIN_XY_OPTIONS})
+    cloth_type: ClothType = field(
+        metadata={DESERIALIZER_OPTIONS: CLOTH_TYPE_OPTIONS}, default=ClothType.WOVEN
+    )
+
+    @property
+    def modulus_x(self):
+        table = {
+            "WOVEN": self.modulus_x_,
+            "CSM": self.modulus_x_csm,
+        }
+        return table[self.cloth_type]
+
+    @property
+    def modulus_y(self):
+        table = {
+            "WOVEN": self.modulus_y_,
+            "CSM": self.modulus_y_csm,
+        }
+        return table[self.cloth_type]
+
+    @property
+    def modulus_xy(self):
+        table = {
+            "WOVEN": self.modulus_xy_,
+            "CSM": self.modulus_xy_csm,
+        }
+        return table[self.cloth_type]
 
     @property
     def _f_vol_cont(self):
@@ -121,14 +173,14 @@ class LaminaPartsWoven:
         )
 
     @property
-    def modulus_x(self):
+    def modulus_x_(self):
         return (
             self._f_vol_cont * self.fiber.modulus_x
             + (1 - self._f_vol_cont) * self.matrix.modulus_x
         )
 
     @property
-    def modulus_y(self):
+    def modulus_y_(self) -> float:
         return (
             self.matrix.modulus_x
             / (1 - self.matrix.poisson ** 2)
@@ -142,7 +194,11 @@ class LaminaPartsWoven:
         )
 
     @property
-    def modulus_xy(self):
+    def modulus_y_csm(self):
+        return self.modulus_x
+
+    @property
+    def modulus_xy_(self):
         return (
             self.matrix.modulus_xy
             * (1 + 0.8 * self._f_vol_cont ** 0.8)
@@ -151,6 +207,14 @@ class LaminaPartsWoven:
                 + self.matrix.modulus_xy * self._f_vol_cont / self.fiber.modulus_xy
             )
         )
+
+    @property
+    def modulus_xy_csm(self):
+        return self.modulus_x / (2 * (1 + self.poisson_xy))
+
+    @property
+    def modulus_x_csm(self):
+        return 3 / 8 * self.modulus_x_ + 5 / 8 * self.modulus_y_
 
     @property
     def poisson_xy(self):
@@ -168,7 +232,7 @@ class LaminaPartsWoven:
 
 
 @dataclass
-class LaminaPartsCSM(LaminaPartsWoven):
+class LaminaPartsCSM(LaminaParts):
     """Lamina made of chopped stranded mat prop caculated from fiber and
     matrix, in accordance to C3.8.2 Elasto-mechanical properties
     of laminated structures
@@ -187,13 +251,14 @@ class LaminaPartsCSM(LaminaPartsWoven):
         return self.modulus_x / (2 * (1 + self.poisson_xy))
 
 
-LAMINA_DATA_TYPES: list[LaminaData] = [LaminaMonolith, LaminaPartsCSM, LaminaPartsWoven]
+LAMINA_DATA_TYPES: list[LaminaData] = [LaminaMonolith, LaminaPartsCSM, LaminaParts]
 LAMINA_TYPE_TABLE = {lamina.__name__: lamina for lamina in LAMINA_DATA_TYPES}
 LAMININA_TYPE_OPTIONS = DeSerializerOptions(
     flatten=True,
     add_type=True,
     type_label="lamina_data_type",
     subtype_table=LAMINA_TYPE_TABLE,
+    metadata=PrintMetadata(long_name="Lamina defition"),
 )
 
 # Factored data out to get composition over inheritance. Redirected the calls to the data object so the code doesnt breakdown
