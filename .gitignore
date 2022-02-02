@@ -2,6 +2,7 @@ gl_hsc_scantling/__pycache__/
 test/__pycache__/
 .spyproject/
 .vscode/
+.VSCodeCounter/
 src/gl_hsc_scantling.egg-info/
 src/gl_hsc_scantling/__pycache__/
 .pytest_cache/
