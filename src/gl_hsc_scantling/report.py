@@ -10,7 +10,7 @@ from dataclasses import dataclass, fields
 import numpy as np
 import pylatex
 import quantities as pq
-from marshmallow import Schema, fields
+
 from pylatex import NoEscape, Quantity
 from dataclass_tools.tools import serialize_dataclass
 

@@ -10,6 +10,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import cache
+from re import T
 from typing import Optional, Protocol, Tuple
 
 import numpy as np
@@ -17,9 +18,14 @@ from dataclass_tools.tools import (
     DESERIALIZER_OPTIONS,
     DeSerializerOptions,
     PrintMetadata,
+    serialize_dataclass,
 )
 
 from .common_field_options import (
+    ANTI_SYMMETRIC_OPTIONS,
+    CORE_MATERIAL_OPTIONS,
+    CORE_THICKNESS_OPTIONS,
+    CORE_TYPE_OPTIONS,
     DENSITY_OPTIONS,
     F_AREA_DENSITY_OPTIONS,
     F_MASS_CONT_OPTIONS,
@@ -27,12 +33,21 @@ from .common_field_options import (
     MATRIX_OPTIONS,
     MAX_STRAIN_X_OPTIONS,
     MAX_STRAIN_XY_OPTIONS,
+    MODULUS_COMP_OPTIONS,
+    MODULUS_SHEAR_OPTIONS,
+    MODULUS_TENSION_OPTIONS,
     MODULUS_X_OPTIONS,
     MODULUS_XY_OPTIONS,
     MODULUS_Y_OPTIONS,
+    MULTIPLE_OPTIONS,
     NAME_OPTIONS,
     POISSON_OPTIONS,
     POISSON_XY_OPTIONS,
+    RESIN_ABSORPTION_OPTIONS,
+    STRENGTH_COMP_OPTIONS,
+    STRENGTH_SHEAR_OPTIONS,
+    STRENGTH_TENSION_OPTIONS,
+    SYMMETRIC_OPTIONS,
     THICKNESS_OPTIONS,
 )
 from .report import Criteria
@@ -116,7 +131,7 @@ class ClothType(str, Enum):
     CSM = "CSM"
 
 
-CLOTH_TYPE_OPTIONS = DeSerializerOptions(
+cloth_type_options = DeSerializerOptions(
     metadata=PrintMetadata(long_name="Cloth type", abreviation="cloth")
 )
 
@@ -138,7 +153,7 @@ class LaminaParts:
     max_strain_x: float = field(metadata={DESERIALIZER_OPTIONS: MAX_STRAIN_X_OPTIONS})
     max_strain_xy: float = field(metadata={DESERIALIZER_OPTIONS: MAX_STRAIN_XY_OPTIONS})
     cloth_type: ClothType = field(
-        metadata={DESERIALIZER_OPTIONS: CLOTH_TYPE_OPTIONS}, default=ClothType.WOVEN
+        metadata={DESERIALIZER_OPTIONS: cloth_type_options}, default=ClothType.WOVEN
     )
 
     @property
@@ -253,7 +268,7 @@ class LaminaPartsCSM(LaminaParts):
 
 LAMINA_DATA_TYPES: list[LaminaData] = [LaminaMonolith, LaminaPartsCSM, LaminaParts]
 LAMINA_TYPE_TABLE = {lamina.__name__: lamina for lamina in LAMINA_DATA_TYPES}
-LAMININA_TYPE_OPTIONS = DeSerializerOptions(
+laminina_type_options = DeSerializerOptions(
     flatten=True,
     add_type=True,
     type_label="lamina_data_type",
@@ -266,7 +281,7 @@ LAMININA_TYPE_OPTIONS = DeSerializerOptions(
 class Lamina:
     """Lamina stiffness and physical properties calculation logic."""
 
-    data: LaminaData = field(metadata={DESERIALIZER_OPTIONS: LAMININA_TYPE_OPTIONS})
+    data: LaminaData = field(metadata={DESERIALIZER_OPTIONS: laminina_type_options})
 
     @property
     def name(self):
@@ -331,36 +346,45 @@ class CoreMat:
     """Core material, with strength and modulus inputs in kPa.
     Density value should be in kg/m3 and resin absorption in kg/m2"""
 
-    name: str
-    strength_shear: float
-    modulus_shear: float
-    strength_tens: float
-    modulus_tens: float
-    strength_comp: float
-    modulus_comp: float
-    density: float
-    resin_absorption: float = 0
-    core_type: str = "solid"
-
-
-CORE_MATERIAL_OPTIONS = DeSerializerOptions(
-    subs_by_attr="name", subs_collection_name="core_materials"
-)
+    name: str = field(metadata={DESERIALIZER_OPTIONS: NAME_OPTIONS})
+    strength_shear: float = field(
+        metadata={DESERIALIZER_OPTIONS: STRENGTH_SHEAR_OPTIONS}
+    )
+    modulus_shear: float = field(metadata={DESERIALIZER_OPTIONS: MODULUS_SHEAR_OPTIONS})
+    strength_tens: float = field(
+        metadata={DESERIALIZER_OPTIONS: STRENGTH_TENSION_OPTIONS}
+    )
+    modulus_tens: float = field(
+        metadata={DESERIALIZER_OPTIONS: MODULUS_TENSION_OPTIONS}
+    )
+    strength_comp: float = field(metadata={DESERIALIZER_OPTIONS: STRENGTH_COMP_OPTIONS})
+    modulus_comp: float = field(metadata={DESERIALIZER_OPTIONS: MODULUS_COMP_OPTIONS})
+    density: float = field(metadata={DESERIALIZER_OPTIONS: DENSITY_OPTIONS})
+    resin_absorption: float = field(
+        metadata={DESERIALIZER_OPTIONS: RESIN_ABSORPTION_OPTIONS}, default=0
+    )
+    core_type: str = field(
+        metadata={DESERIALIZER_OPTIONS: CORE_TYPE_OPTIONS}, default="solid"
+    )
 
 
 @dataclass
 class Core:
     """Core definied by core material and thickness (m)"""
 
-    name: str
     core_material: CoreMat = field(
         metadata={DESERIALIZER_OPTIONS: CORE_MATERIAL_OPTIONS}
     )
-    thickness: float
+    core_thickness: float = field(metadata={DESERIALIZER_OPTIONS: CORE_THICKNESS_OPTIONS})
 
 
-PLY_MATERIAL_OPTIONS = DeSerializerOptions(
-    subs_by_attr="name", subs_collection_name="laminas"
+ply_material_options = DeSerializerOptions(
+    subs_by_attr="name",
+    subs_collection_name="laminas",
+    metadata=PrintMetadata(long_name="Material"),
+)
+orientation_options = DeSerializerOptions(
+    metadata=PrintMetadata(long_name="Orientation", units="degree")
 )
 
 
@@ -370,8 +394,8 @@ class Ply:
     orientation - degrees.
     """
 
-    material: Lamina = field(metadata={DESERIALIZER_OPTIONS: PLY_MATERIAL_OPTIONS})
-    orientation: float
+    material: Lamina = field(metadata={DESERIALIZER_OPTIONS: ply_material_options})
+    orientation: float = field(metadata={DESERIALIZER_OPTIONS: orientation_options})
 
     @property
     def thickness(self):
@@ -760,9 +784,28 @@ class ABCLaminate(ABC):
 @dataclass
 class PlyStack:
     plies: list[Ply]
-    multiple: Optional[int] = None
-    symmetric: bool = False
-    antisymmetric: bool = False
+    multiple: Optional[int] = field(
+        metadata={DESERIALIZER_OPTIONS: MULTIPLE_OPTIONS}, default=None
+    )
+    symmetric: bool = field(
+        metadata={DESERIALIZER_OPTIONS: SYMMETRIC_OPTIONS}, default=False
+    )
+    antisymmetric: bool = field(
+        metadata={DESERIALIZER_OPTIONS: ANTI_SYMMETRIC_OPTIONS}, default=False
+    )
+
+    @property
+    def print_stack_list(self):
+        return [
+            serialize_dataclass(ply, printing_format=True, include_names=True)
+            for ply in self.plies
+        ]
+
+    @property
+    def print_stack_options(self):
+        return serialize_dataclass(
+            self, printing_format=True, include_names=True, filter_fields=["plies"]
+        )
 
     def __post_init__(self):
         if self.symmetric and self.antisymmetric:
@@ -786,14 +829,14 @@ class PlyStack:
         return list_of_plies
 
 
-PLY_STACK_OPTIONS = DeSerializerOptions(flatten=True)
+ply_stack_options = DeSerializerOptions(flatten=True)
 
 
 @dataclass
 class SingleSkinLaminate(ABCLaminate):
 
     name: str
-    ply_stack: PlyStack = field(metadata={DESERIALIZER_OPTIONS: PLY_STACK_OPTIONS})
+    ply_stack: PlyStack = field(metadata={DESERIALIZER_OPTIONS: ply_stack_options})
 
     @property
     def thick_array(self) -> float:
@@ -820,7 +863,9 @@ class SingleSkinLaminate(ABCLaminate):
         ]
 
 
-CORE_OPTIONS = DeSerializerOptions(subs_by_attr="name", subs_collection_name="cores")
+CORE_OPTIONS = DeSerializerOptions(
+    flatten=True,
+)
 
 
 @dataclass
@@ -831,8 +876,12 @@ class SandwichLaminate(ABCLaminate):
     outter_laminate_ply_stack: PlyStack
     core: Core = field(metadata={DESERIALIZER_OPTIONS: CORE_OPTIONS})
     inner_laminate_ply_stack: PlyStack = None
-    symmetric: bool = False
-    antisymmetric: bool = False
+    symmetric: bool = field(
+        metadata={DESERIALIZER_OPTIONS: SYMMETRIC_OPTIONS}, default=False
+    )
+    antisymmetric: bool = field(
+        metadata={DESERIALIZER_OPTIONS: ANTI_SYMMETRIC_OPTIONS}, default=False
+    )
 
     def __post_init__(self):
         if self.symmetric and self.antisymmetric:
@@ -846,6 +895,19 @@ class SandwichLaminate(ABCLaminate):
             raise ValueError(
                 "Must either provide inner_laminate_ply_list or let laminate be symmetric or antisymmetric."
             )
+
+    @property
+    def print_laminate_options(self):
+        return serialize_dataclass(
+            self,
+            printing_format=True,
+            include_names=True,
+            filter_fields=[
+                "name",
+                "outter_laminate_ply_stack",
+                "inner_laminate_ply_stack",
+            ],
+        )
 
     @property
     def exp(self):
@@ -888,7 +950,9 @@ class SandwichLaminate(ABCLaminate):
         outter_plies = [
             PlyPositioned(
                 ply,
-                z_coord - self.core.thickness / 2 - self.outter_laminate.thickness / 2,
+                z_coord
+                - self.core.core_thickness / 2
+                - self.outter_laminate.thickness / 2,
             )
             for ply, z_coord in zip(
                 self.inner_laminate_ply_stack.stack, self.outter_laminate.z_coords
@@ -897,7 +961,9 @@ class SandwichLaminate(ABCLaminate):
         inner_plies = [
             PlyPositioned(
                 ply,
-                z_coord + self.core.thickness / 2 + self.inner_laminate.thickness / 2,
+                z_coord
+                + self.core.core_thickness / 2
+                + self.inner_laminate.thickness / 2,
             )
             for ply, z_coord in zip(
                 self.inner_laminate.ply_stack.stack, self.inner_laminate.z_coords
@@ -910,5 +976,5 @@ class SandwichLaminate(ABCLaminate):
         return (
             self.inner_laminate.thickness
             + self.outter_laminate.thickness
-            + self.core.thickness
+            + self.core.core_thickness
         )

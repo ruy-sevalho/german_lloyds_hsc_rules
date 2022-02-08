@@ -6,7 +6,7 @@ from gl_hsc_scantling.composites import (
     Fiber,
     Lamina,
     LaminaMonolith,
-    LaminaPartsWoven,
+    LaminaParts,
     Matrix,
     Ply,
     PlyStack,
@@ -63,7 +63,7 @@ def session_example():
     fibers = [e_glass]
     session.add_stuff(fibers)
     e_glass_poly_70_308 = Lamina(
-        LaminaPartsWoven(
+        LaminaParts(
             name="e_glass_poly_70_308",
             fiber=e_glass,
             matrix=polyester,
@@ -103,9 +103,9 @@ def session_example():
     )
     core_mats = [H80]
     session.add_stuff(core_mats)
-    H80_20mm = Core(name="H80_20mm", core_material=H80, thickness=0.02)
-    cores = [H80_20mm]
-    session.add_stuff(cores)
+    # H80_20mm = Core(name="H80_20mm", core_material=H80, core_thickness=0.02)
+    # cores = [H80_20mm]
+    # session.add_stuff(cores)
 
     orientation = [0, 90]
     et_0900_20x_input = PlyStack(
@@ -125,7 +125,7 @@ def session_example():
         name="Sandwich Laminate",
         outter_laminate_ply_stack=sandwich_skin_input,
         inner_laminate_ply_stack=sandwich_skin_input,
-        core=H80_20mm,
+        core=Core(core_material=H80, core_thickness=0.02),
     )
     laminates = [et_0900_20x, et_0900_20x_45, sandwich_laminate]
     session.add_stuff(laminates)

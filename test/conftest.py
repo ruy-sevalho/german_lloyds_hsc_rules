@@ -14,7 +14,7 @@ from gl_hsc_scantling.composites import (
     CoreMat,
     Fiber,
     LaminaMonolith,
-    LaminaPartsWoven,
+    LaminaParts,
     Matrix,
     Ply,
     SandwichLaminate,

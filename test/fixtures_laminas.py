@@ -5,12 +5,7 @@
  """
 
 import pytest as pt
-from gl_hsc_scantling.shortcut import (
-    Lamina,
-    LaminaMonolith,
-    LaminaPartsCSM,
-    LaminaPartsWoven,
-)
+from gl_hsc_scantling.shortcut import Lamina, LaminaMonolith, LaminaParts
 
 from .exp_output import ExpPly
 from .fixtures_laminates import *
@@ -19,7 +14,7 @@ from .fixtures_laminates import *
 @pt.fixture
 def E_glass_poly_70_304(eglass_gl, polyester_gl):
     return Lamina(
-        LaminaPartsWoven(
+        LaminaParts(
             name="E_glass_poly_70_304",
             fiber=eglass_gl,
             matrix=polyester_gl,
@@ -47,7 +42,7 @@ def E_glass_poly_70_304_expected():
 @pt.fixture
 def E_glass_poly_50_304(eglass_gl, polyester_gl):
     return Lamina(
-        LaminaPartsWoven(
+        LaminaParts(
             name="E_glass_poly_50_304",
             fiber=eglass_gl,
             matrix=polyester_gl,
@@ -75,7 +70,7 @@ def E_glass_poly_50_304_expected():
 @pt.fixture
 def E_glass_poly_30_304(eglass_gl, polyester_gl):
     return Lamina(
-        LaminaPartsWoven(
+        LaminaParts(
             name="E_glass_poly_30_304",
             fiber=eglass_gl,
             matrix=polyester_gl,

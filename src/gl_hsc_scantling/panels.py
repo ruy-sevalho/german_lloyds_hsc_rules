@@ -10,7 +10,16 @@ from enum import Enum
 import numpy as np
 from dataclass_tools.tools import DESERIALIZER_OPTIONS, DeSerializerOptions
 
-from .common_field_options import LAMINATE_OPTIONS, NAMED_FIELD_OPTIONS
+from .common_field_options import (
+    BOUND_COND_OPTIONS,
+    CHINE_ANGLE_OPTIONS,
+    CHINE_OPTIONS,
+    CURVATURE_X_OPTIONS,
+    CURVATURE_Y_OPTIONS,
+    DIM_X_OPTIONS,
+    DIM_Y_OPTIONS,
+    LAMINATE_OPTIONS,
+)
 from .composites import ABCLaminate, SandwichLaminate, SingleSkinLaminate
 from .structural_model import BoundaryCondition, StructuralModel
 from .vessel import Vessel
@@ -19,15 +28,23 @@ from .vessel import Vessel
 @dataclass
 class Panel(StructuralModel):
 
-    dim_x: float
-    dim_y: float
+    dim_x: float = field(metadata={DESERIALIZER_OPTIONS: DIM_X_OPTIONS})
+    dim_y: float = field(metadata={DESERIALIZER_OPTIONS: DIM_Y_OPTIONS})
     laminate: ABCLaminate = field(metadata={DESERIALIZER_OPTIONS: LAMINATE_OPTIONS})
-    curvature_x: float = 0
-    curvature_y: float = 0
-    bound_cond: BoundaryCondition = BoundaryCondition.FIXED
-    chine: bool = False
-    chine_angle: float = 0
-
+    curvature_x: float = field(
+        default=0, metadata={DESERIALIZER_OPTIONS: CURVATURE_X_OPTIONS}
+    )
+    curvature_y: float = field(
+        metadata={DESERIALIZER_OPTIONS: CURVATURE_Y_OPTIONS}, default=0
+    )
+    bound_cond: BoundaryCondition = field(
+        metadata={DESERIALIZER_OPTIONS: BOUND_COND_OPTIONS},
+        default=BoundaryCondition.FIXED,
+    )
+    chine: bool = field(metadata={DESERIALIZER_OPTIONS: CHINE_OPTIONS}, default=False)
+    chine_angle: float = field(
+        metadata={DESERIALIZER_OPTIONS: CHINE_ANGLE_OPTIONS}, default=0
+    )
     # @property
     # def _deadrise_eff(self):
     #     return np.max([np.min([self.deadrise, 30]), 10])
@@ -72,7 +89,7 @@ class Panel(StructuralModel):
     # they are usually switched
     @property
     def area(self):
-        return np.min([self.span * self.spacing, 3 * self.span ** 2])
+        return np.min([self.span * self.spacing, 3 * self.span**2])
 
     @property
     def curvature(self):
@@ -161,7 +178,7 @@ class Panel(StructuralModel):
         return (
             self.panel_coef("beta")
             * pressure
-            * self.span ** 2
+            * self.span**2
             * self.curve_correction
             / 6
         )
@@ -178,7 +195,7 @@ class Panel(StructuralModel):
         return (
             self.panel_coef("gamma")
             * self.design_pressure
-            * self.span ** 4
+            * self.span**4
             / (12 * self.laminate.bend_stiff[self.direction_table[self.span_direction]])
         )
 

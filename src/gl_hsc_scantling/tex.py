@@ -20,32 +20,75 @@ from pylatex import (
     Quantity,
     Section,
     Subsection,
+    Subsubsection,
     Table,
     Tabular,
+    Package,
+    NewPage,
 )
-from pylatex.base_classes import Environment
+from pylatex.base_classes import Environment, CommandBase
 from pylatex.labelref import Label
 from pylatex.math import Math
 from pylatex.utils import bold
+from gl_hsc_scantling.elements import LOCATION_TYPES
+from gl_hsc_scantling.locations_abc import Location
+
+from gl_hsc_scantling.stiffeners import StiffenerSectionWithFoot
 
 from .abrevitation_registry import abv_registry
-from .composites import LaminaMonolith, LaminaParts
+from .composites import (
+    LaminaMonolith,
+    LaminaParts,
+    Laminate,
+    PlyStack,
+    SandwichLaminate,
+    SingleSkinLaminate,
+)
 
 if TYPE_CHECKING:
     from .session import Session
+
 
 INPUT = "Input"
 VESSEL_SECTION_TITLE = "Vessels"
 VESSEL_INPUT_CAPTION = "Vessel parameters"
 VESSEL_LOADS_CAPTION = "Vessel global loads"
 MATERIALS_SECTION_TITLE = "Materials"
+CONSTITUENT_MATERIASL_SECTION_TITLE = "Constituent materials"
+LAMINAS_SECTION_TITLE = "Laminas"
+LAMINATES_SECTION_TITLE = "Laminates"
 FIBER_CAPTION = "Fibers"
 MATRIX_CAPTION = "Matrices"
 LAMINATE_COMPOSED_CAPTION = "Laminates - properties calculated from fiber and matix"
 CAPTIONS_VESSEL = [VESSEL_INPUT_CAPTION, VESSEL_LOADS_CAPTION]
+LAMINA_MONLITH_CAPTION = "Laminas"
+LAMINA_PARTS_CAPTION = "Laminas - definied by fiber and matirx combination"
+single_skin_definition_table_caption = "single skin laminate"
+sandwich_laminate_arguments_table_caption = "sandwich laminate"
+CORES_SUB_SECTION_TITLE = "Cores"
+CORE_MATERIAL_TABLE_CAPTION = "Core materials"
+OUTTER_SKIN_CATPION = "outter skin"
+INNER_SKIN_CATPION = "inner skin"
+STIFFENER_PROFILES_SECTION_TITLE = "Stiffener sections"
+STIFFENER_SECTION_DEFINITION_CAPTION = "stiffener section"
+PANELS_SECTION_TITLE = "Panels"
+STIFFENERS_SECTION_TITLE = "Stiffeners"
+INPUTS_TITLE = "Inputs"
 
 
 class Center(Environment):
+    pass
+
+
+class Landscape(Environment):
+    pass
+
+
+class TableOfContents(CommandBase):
+    pass
+
+
+class ListOfTables(CommandBase):
     pass
 
 
@@ -68,6 +111,18 @@ class ReportConfig:
     f_mass_cont: PrintOptions = PrintOptions()
     f_area_density: PrintOptions = PrintOptions()
     thickness: PrintOptions = PrintOptions()
+    orientation: PrintOptions = PrintOptions()
+    multiple: PrintOptions = PrintOptions()
+    strength_shear: PrintOptions = PrintOptions()
+    modulus_shear: PrintOptions = PrintOptions()
+    strength_tens: PrintOptions = PrintOptions()
+    modulus_tens: PrintOptions = PrintOptions()
+    strength_comp: PrintOptions = PrintOptions()
+    modulus_comp: PrintOptions = PrintOptions()
+    resin_absorption: PrintOptions = PrintOptions()
+    core_type: PrintOptions = PrintOptions()
+    dimension_web: PrintOptions = PrintOptions()
+    dimension_flange: PrintOptions = PrintOptions()
 
     def to_dict(self):
         return {field_.name: getattr(self, field_.name) for field_ in fields(self)}
@@ -82,7 +137,7 @@ def _print_quantity(
     options = {"round-precision": round_precision}
     if convert_units is not None:
         quantity = quantity.rescale(convert_units)
-    if not disp_units:
+    if not disp_units and not quantity.units == pq.percent:
         quantity = quantity.magnitude
     return Quantity(quantity, options=options)
 
@@ -94,7 +149,7 @@ def _print_type(
     round_precision=2,
 ):
     if isinstance(value, pq.Quantity):
-        return _print_quantity(
+        value = _print_quantity(
             value,
             disp_units=disp_units,
             convert_units=convert_units,
@@ -103,16 +158,18 @@ def _print_type(
     return value
 
 
-def _get_unit(value: Union[str, pq.Quantity], **kwargs):
-    if isinstance(value, str):
+def _get_unit(
+    value: Union[str, pq.Quantity],
+    convert_units: Optional[str] = None,
+):
+    if isinstance(value, str) or isinstance(value, bool):
         return ""
-    if value.units == pq.dimensionless:
+    if value.units == pq.dimensionless or value.units == pq.percent:
         return ""
-    if kwargs.get("convert_units", None) is not None:
-        value = value.rescale(kwargs["convert_units"])
+    if convert_units is not None:
+        value = value.rescale(convert_units)
     unit_string = Quantity(value.units).dumps()
     unit_string = unit_string[:4] + unit_string[7:]
-
     return NoEscape(" " + "(" + unit_string + ")")
 
 
@@ -136,9 +193,10 @@ def _single_entity_dict_to_table_list(
 
 # Selection of attributes and properties to print are made by each object, which
 # wraps the results as property that returns a dict
-def _dict_of_entities_dicts_to_table_list(
-    entities: dict[str, dict[str, PrintWrapper]],
+def _list_of_entities_dicts_to_table_list(
+    entities: list[dict[str, PrintWrapper]],
     header: bool = False,
+    split_units: bool = False,
     options_dict: dict[str, PrintOptions] = dict(),
 ):
     """Creates a table(lists of lists)"""
@@ -149,21 +207,40 @@ def _dict_of_entities_dicts_to_table_list(
             )
             for key, printable in entity.items()
         ]
-        for entity in entities.values()
+        for entity in entities
     ]
     if header:
-        entity: dict[str, PrintWrapper] = list(entities.values())[0]
-        table = [
-            [
-                NoEscape(
-                    printable.names.abreviation
-                    + _get_unit(
-                        printable.value, **asdict(options_dict.get(key, PrintOptions()))
+        entity = entities[0]
+        if split_units:
+            header = [
+                [
+                    NoEscape(printable.names.abreviation)
+                    for key, printable in entity.items()
+                ],
+                [
+                    _get_unit(
+                        printable.value,
+                        convert_units=options_dict.get(
+                            key, PrintOptions()
+                        ).convert_units,
                     )
-                )
-                for key, printable in entity.items()
+                    for key, printable in entity.items()
+                ],
             ]
-        ] + table
+        else:
+            header = [
+                [
+                    NoEscape(printable.names.abreviation)
+                    + _get_unit(
+                        printable.value,
+                        convert_units=options_dict.get(
+                            key, PrintOptions()
+                        ).convert_units,
+                    )
+                    for key, printable in entity.items()
+                ]
+            ]
+        table = header + table
     return table
 
 
@@ -177,46 +254,6 @@ def _cols_repeat(cols_step, n):
 
 def _build_cols(table_array):
     return "l" + " c" * (len(table_array[0]) - 1)
-
-
-def _add_tabular(table_array, cols, horizontal_lines=None):
-    if horizontal_lines is None:
-        horizontal_lines = []
-    tabular = Tabular(cols)
-    for i, row in enumerate(table_array):
-        tabular.add_row(row)
-        if i in horizontal_lines:
-            tabular.add_hline()
-    return tabular
-
-
-def _add_table(
-    table_array,
-    cols=None,
-    header=None,
-    caption=None,
-    label=None,
-    split=False,
-    horizontal_lines=None,
-):
-    # if label is None:
-    #     label = "".join(caption.split())
-    if cols is None:
-        cols = _build_cols(table_array)
-    table = Table(position="h!")
-    if caption:
-        table.add_caption(caption)
-    if split:
-        table_array, n = _split_array(table_array, split)
-        cols = _cols_repeat(cols, n)
-    # table.append(NoEscape(r"\centering"))
-    center = Center(
-        data=_add_tabular(table_array, cols, horizontal_lines=horizontal_lines)
-    )
-    table.append(center)
-    if label:
-        table.append(Label(label))
-    return table
 
 
 def _split_array(table_array, n):
@@ -240,8 +277,174 @@ def _split_array(table_array, n):
     return new_array, n
 
 
-def _extract_attr_from_entities(entities, attr_name="input_asdict"):
-    return [getattr(entity, attr_name) for entity in entities.values()]
+def _add_tabular(table_array, cols=None, horizontal_lines=None, split=None):
+    if cols is None:
+        cols = _build_cols(table_array)
+    if split:
+        table_array, n = _split_array(table_array, split)
+        cols = _cols_repeat(cols, n)
+    if horizontal_lines is None:
+        horizontal_lines = []
+    tabular = Tabular(cols)
+    for i, row in enumerate(table_array):
+        tabular.add_row(row)
+        if i in horizontal_lines:
+            tabular.add_hline()
+    return tabular
+
+
+def _add_table(
+    table_array,
+    cols=None,
+    header=None,
+    caption=None,
+    label=None,
+    split=False,
+    horizontal_lines=None,
+):
+    # if label is None:
+    #     label = "".join(caption.split())
+
+    data = _add_tabular(
+        table_array, cols, horizontal_lines=horizontal_lines, split=split
+    )
+
+    center = Center(data=data)
+    table = Table(position="H")
+    if caption:
+        table.add_caption(caption)
+    table.append(center)
+    if label:
+        table.append(Label(label))
+    return table
+
+
+# Refactoring in process - eventually must drop either _add_table_ or _add_table for sanity's sake.
+def _add_table_(
+    data,
+    caption=None,
+    label=None,
+):
+    table = Table(position="H")
+    if caption:
+        table.add_caption(caption)
+    if isinstance(data, list):
+        for item in data:
+            table.append(item)
+    else:
+        table.append(data)
+    if label:
+        table.append(Label(label))
+    return table
+
+
+def _add_ply_stack_tables(
+    ply_stack: PlyStack,
+    options_dict: dict[str, PrintOptions] = dict(),
+    center: bool = True,
+):
+    tabulars = Center() if center else list()
+    tabulars.append(
+        _add_tabular(
+            _list_of_entities_dicts_to_table_list(
+                ply_stack.print_stack_list, header=True, options_dict=options_dict
+            ),
+            horizontal_lines=[0],
+        )
+    )
+    tabulars.append(
+        _add_tabular(
+            _list_of_entities_dicts_to_table_list(
+                [ply_stack.print_stack_options], header=True, options_dict=options_dict
+            ),
+            horizontal_lines=[0],
+        )
+    )
+    return tabulars
+
+
+def _single_skin_laminate_tables(
+    lam: SingleSkinLaminate,
+    label=None,
+    options_dict: dict[str, PrintOptions] = dict(),
+    center: bool = True,
+):
+    return _add_table_(
+        data=_add_ply_stack_tables(
+            lam.ply_stack, options_dict=options_dict, center=center
+        ),
+        caption=f"{lam.name} - {single_skin_definition_table_caption}",
+        label=label,
+    )
+
+
+def _sandwich_laminate_tables(
+    lam: SandwichLaminate,
+    label=None,
+    options_dict: dict[str, PrintOptions] = dict(),
+    center: bool = True,
+):
+    tables = []
+    sandwich_laminate_options_data = _list_of_entities_dicts_to_table_list(
+        [lam.print_laminate_options], header=True, options_dict=options_dict
+    )
+    sandwich_laminate_options_tabular = _add_tabular(
+        sandwich_laminate_options_data, horizontal_lines=[0]
+    )
+    container = Center() if center else list()
+    container.append(sandwich_laminate_options_tabular)
+    tables.append(
+        _add_table_(
+            data=container,
+            caption=f"{lam.name} - {sandwich_laminate_arguments_table_caption}",
+        )
+    )
+    outter_skin_laminate_tabular = _add_ply_stack_tables(
+        lam.outter_laminate_ply_stack, options_dict=options_dict, center=center
+    )
+    tables.append(
+        _add_table_(
+            data=outter_skin_laminate_tabular,
+            caption=f"{lam.name} {OUTTER_SKIN_CATPION}",
+        )
+    )
+    if not (lam.antisymmetric or lam.symmetric):
+        inner_skin_laminate_tabular = _add_ply_stack_tables(
+            lam.inner_laminate_ply_stack, options_dict=options_dict, center=center
+        )
+        tables.append(
+            _add_table_(
+                data=inner_skin_laminate_tabular,
+                caption=f"{lam.name} {INNER_SKIN_CATPION}",
+            )
+        )
+    return tables
+
+
+def _stiffener_tables(
+    stiffener: StiffenerSectionWithFoot,
+    options_dict: dict[str, PrintOptions] = dict(),
+    center: bool = True,
+):
+    data = _list_of_entities_dicts_to_table_list(
+        [serialize_dataclass(stiffener, printing_format=True, include_names=True)],
+        header=True,
+        options_dict=options_dict,
+    )
+    # Swap performed between name and type of stiffener properties, to leave name first
+    for row in data:
+        row[0], row[1] = row[1], row[0]
+    container = Center() if center else list()
+    container.append(
+        _add_tabular(
+            data,
+            horizontal_lines=[0],
+        )
+    )
+    return _add_table_(
+        container,
+        caption=f"{STIFFENER_SECTION_DEFINITION_CAPTION.capitalize()} {stiffener.name}",
+    )
 
 
 def generate_report(
@@ -254,33 +457,38 @@ def generate_report(
         "document_options": document_options,
         "geometry_options": geometry_options,
     }
+    display_options = config.to_dict()
     doc = Document(**doc_kwargs)
+    doc.preamble.append(Package("float"))
+    doc.preamble.append(Package("pdflscape"))
+    doc.preamble.append(Package("hyperref"))
     doc.preamble.append(NoEscape(r"\DeclareSIUnit\kt{kt}"))
     doc.preamble.append(NoEscape(r"\sisetup{round-mode=places}"))
     # doc.preamble.append(NoEscape(r"\sisetup{scientific-notation=true}"))
+    doc.append(TableOfContents())
+    doc.append(ListOfTables())
 
-    # section_resume = Section("Resume", numbering=False)
-
+    ABR_CAPTION = "Abreviations"
+    abr_section = Section(ABR_CAPTION, numbering=False)
     abr_table = [
         [item.metadata.names.long, item.metadata.names.abreviation]
         for item in abv_registry
     ]
 
-    # section_resume.append(_add_table(abr_table))
-
-    doc.append(_add_table(abr_table))
+    abr_section.append(_add_table(abr_table))
+    doc.append(abr_section)
+    doc.append(NewPage())
 
     # Section Vessel
     section_vessel = Section(VESSEL_SECTION_TITLE)
 
     # Vessel data
     vessels = session.vessels
-
     for vessel in vessels.values():
-        options_dict = vessel.input_print_options()
+        options_dict = display_options
         vessel_input = _single_entity_dict_to_table_list(
             serialize_dataclass(obj=vessel, printing_format=True, include_names=True),
-            options_dict=vessel.input_print_options(),
+            options_dict=options_dict,
         )
         vessel_loads = vessel.loads_asdict
         vessel_loads = _single_entity_dict_to_table_list(vessel_loads)
@@ -299,89 +507,228 @@ def generate_report(
 
     # Section Materials
     section_materials = Section(MATERIALS_SECTION_TITLE)
-
-    # modulus_options = PrintOptions(**{"round_precision": 2, "convert_units": "GPa"})
-
-    # display_options = {
-    #     "modulus_x": modulus_options,
-    #     "modulus_y": modulus_options,
-    #     "modulus_xy": modulus_options,
-    #     "density": PrintOptions(**{"round_precision": 0}),
-    # }
-    display_options = config.to_dict()
+    section_constituent_materials = Subsection(CONSTITUENT_MATERIASL_SECTION_TITLE)
 
     # Fibers data
+
     fibers_dict = {
         key: serialize_dataclass(value, printing_format=True, include_names=True)
         for key, value in session.fibers.items()
     }
-    fibers_input = _dict_of_entities_dicts_to_table_list(
-        fibers_dict, options_dict=display_options, header=True
+    fibers_input = _list_of_entities_dicts_to_table_list(
+        list(fibers_dict.values()),
+        options_dict=display_options,
+        header=True,
+        split_units=True,
     )
     fibers_table = _add_table(
         table_array=fibers_input,
         # cols="l c c c c c",
         caption=FIBER_CAPTION,
         label="".join(FIBER_CAPTION.split()),
-        horizontal_lines=[0],
+        horizontal_lines=[1],
     )
-    section_materials.append(fibers_table)
+    sub_section_fibers = Subsection(FIBER_CAPTION)
+    section_constituent_materials.append(fibers_table)
+    # section_materials.append(sub_section_fibers)
 
     # Matrix data
     matrices_dict = {
         key: serialize_dataclass(value, printing_format=True, include_names=True)
         for key, value in session.matrices.items()
     }
-    matrices_input = _dict_of_entities_dicts_to_table_list(
-        matrices_dict, options_dict=display_options, header=True
+    matrices_input = _list_of_entities_dicts_to_table_list(
+        list(matrices_dict.values()),
+        options_dict=display_options,
+        header=True,
+        split_units=True,
     )
     matrices_table = _add_table(
         table_array=matrices_input,
         # cols="l c c c c c",
         caption=MATRIX_CAPTION,
         label="".join(MATRIX_CAPTION.split()),
-        horizontal_lines=[0],
+        horizontal_lines=[1],
     )
-    section_materials.append(matrices_table)
+    sub_section_matrices = Subsection(MATRIX_CAPTION)
+    section_constituent_materials.append(matrices_table)
+    # section_materials.append(sub_section_matrices)
+
+    # Core Data
+    sub_section_cores = Subsection(CORES_SUB_SECTION_TITLE)
+    data = [
+        serialize_dataclass(item, printing_format=True, include_names=True)
+        for item in session.core_materials.values()
+    ]
+    core_materials_input = _list_of_entities_dicts_to_table_list(
+        entities=data, options_dict=display_options, header=True, split_units=True
+    )
+    core_materials_table = _add_table(
+        table_array=core_materials_input,
+        # cols="l c c c c c",
+        caption=CORE_MATERIAL_TABLE_CAPTION,
+        horizontal_lines=[1],
+    )
+    section_constituent_materials.append(core_materials_table)
+    # section_materials.append(sub_section_cores)
 
     # Laminae data
-    # Monolith lamin
+    # Monolith lamina
     monolith_lamina_dict = {
         key: serialize_dataclass(value.data, printing_format=True, include_names=True)
         for key, value in session.laminas.items()
         if isinstance(value.data, LaminaMonolith)
     }
-    monolith_lamina_input = _dict_of_entities_dicts_to_table_list(
-        monolith_lamina_dict, options_dict=display_options, header=True
+    monolith_lamina_input = _list_of_entities_dicts_to_table_list(
+        list(monolith_lamina_dict.values()),
+        options_dict=display_options,
+        header=True,
+        split_units=True,
     )
-    LAMINA_MONLITH_CAPTION = "Laminas"
     monolith_lamina_table = _add_table(
         table_array=monolith_lamina_input,
         # cols="l c c c c c",
         caption=LAMINA_MONLITH_CAPTION,
         label="".join(LAMINA_MONLITH_CAPTION.split()),
-        horizontal_lines=[0],
+        horizontal_lines=[1],
     )
-    section_materials.append(monolith_lamina_table)
+    sub_section_laminas = Subsection(LAMINAS_SECTION_TITLE)
+    section_constituent_materials.append(monolith_lamina_table)
+
+    # Lamina definied by parts
     parts_lamina_dict = {
         key: serialize_dataclass(value.data, printing_format=True, include_names=True)
         for key, value in session.laminas.items()
         if isinstance(value.data, LaminaParts)
     }
-    parts_lamina_input = _dict_of_entities_dicts_to_table_list(
-        parts_lamina_dict, options_dict=display_options, header=True
+    parts_lamina_input = _list_of_entities_dicts_to_table_list(
+        list(parts_lamina_dict.values()),
+        options_dict=display_options,
+        header=True,
+        split_units=True,
     )
-    LAMINA_PARTS_CAPTION = "Laminas - definied by fiber and matirx combination"
     parts_lamina_table = _add_table(
         table_array=parts_lamina_input,
         # cols="l c c c c c",
         caption=LAMINA_PARTS_CAPTION,
         label="LaminasParts",
-        horizontal_lines=[0],
+        horizontal_lines=[1],
     )
-    section_materials.append(parts_lamina_table)
+    section_constituent_materials.append(parts_lamina_table)
+    section_materials.append(section_constituent_materials)
 
+    # Laminate Data
+
+    # Single skin laminates
+    sub_section_laminates = Subsection(LAMINATES_SECTION_TITLE)
+    for lam in filter(
+        lambda lam: isinstance(lam, SingleSkinLaminate), session.laminates.values()
+    ):
+        data = _single_skin_laminate_tables(lam, options_dict=display_options)
+        sub_sub_section = Subsubsection(lam.name)
+        sub_sub_section.append(data)
+        sub_section_laminates.append(sub_sub_section)
+
+    # Sandwich laminates
+    for lam in filter(
+        lambda lam: isinstance(lam, SandwichLaminate), session.laminates.values()
+    ):
+        data = _sandwich_laminate_tables(lam, options_dict=display_options)
+        sub_sub_section = Subsubsection(lam.name)
+        for item in data:
+            sub_sub_section.append(item)
+        sub_section_laminates.append(sub_sub_section)
+    section_materials.append(sub_section_laminates)
     doc.append(section_materials)
 
+    # Stiffener Sections
+    section_stiffener_profiles = Section(STIFFENER_PROFILES_SECTION_TITLE)
+    for stiffener in session.stiffener_sections.values():
+        sub_section = Subsection(stiffener.name)
+        sub_section.append(_stiffener_tables(stiffener, options_dict=display_options))
+        section_stiffener_profiles.append(sub_section)
+    doc.append(section_stiffener_profiles)
+
+    # Panels
+    locations: list[Location] = LOCATION_TYPES
+    landscape = Landscape()
+    section_panels = Section(PANELS_SECTION_TITLE)
+    sub_section_panels_inputs = Subsection(
+        f"{PANELS_SECTION_TITLE} {INPUTS_TITLE.lower()}"
+    )
+    for location in locations:
+        panels = [
+            dict(
+                filter(
+                    lambda item: item[0] not in ["element_type", "location"],
+                    serialize_dataclass(
+                        panel,
+                        printing_format=True,
+                        include_names=True,
+                        filter_fields=["vessel"],
+                    ).items(),
+                )
+            )
+            for panel in session.panels.values()
+            if isinstance(panel.location, location)
+        ]
+        if panels:
+            panels_input = _list_of_entities_dicts_to_table_list(
+                panels, header=True, split_units=True, options_dict=options_dict
+            )
+            panels_tabular = Center()
+            panels_tabular.append(_add_tabular(panels_input, horizontal_lines=[1]))
+            sub_section_panels_inputs.append(
+                _add_table_(
+                    panels_tabular, caption=f"{location.name.capitalize()} panels"
+                )
+            )
+
+    section_panels.append(sub_section_panels_inputs)
+    landscape.append(section_panels)
+    doc.append(landscape)
+
+    # Stiffeners
+    landscape = Landscape()
+    section_stiffeners_elements = Section(STIFFENERS_SECTION_TITLE)
+    sub_section_stiffeners_inputs = Subsection(
+        f"{STIFFENERS_SECTION_TITLE} {INPUTS_TITLE.lower()}"
+    )
+    for location in locations:
+        stiffeners = [
+            dict(
+                filter(
+                    lambda item: item[0] not in ["element_type", "location"],
+                    serialize_dataclass(
+                        stiffener,
+                        printing_format=True,
+                        include_names=True,
+                        filter_fields=["vessel"],
+                    ).items(),
+                )
+            )
+            for stiffener in session.stiffener_elements.values()
+            if isinstance(stiffener.location, location)
+        ]
+        if stiffeners:
+            stiffeners_input = _list_of_entities_dicts_to_table_list(
+                stiffeners, header=True, split_units=True, options_dict=options_dict
+            )
+            stiffeners_tabular = Center()
+            stiffeners_tabular.append(
+                _add_tabular(stiffeners_input, horizontal_lines=[1])
+            )
+            sub_section_stiffeners_inputs.append(
+                _add_table_(
+                    stiffeners_tabular,
+                    caption=f"{location.name.capitalize()} stiffeners",
+                )
+            )
+
+    section_stiffeners_elements.append(sub_section_stiffeners_inputs)
+    landscape.append(section_stiffeners_elements)
+    doc.append(landscape)
+
     doc.generate_tex(file_name)
+    doc.generate_pdf(file_name)
     return doc

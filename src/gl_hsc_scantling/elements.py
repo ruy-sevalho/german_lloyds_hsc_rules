@@ -8,11 +8,17 @@ CODE FOR USING German Lloyd 2012 High Speed Craft strucutural rules
 # """
 from dataclasses import dataclass, field
 from enum import Enum
+from re import L
 
 import numpy as np
-from dataclass_tools.tools import DESERIALIZER_OPTIONS, DeSerializerOptions
+from dataclass_tools.tools import (
+    DESERIALIZER_OPTIONS,
+    DeSerializerOptions,
+    PrintMetadata,
+)
 
-from .common_field_options import NAMED_FIELD_OPTIONS
+from .common_field_options import NAME_OPTIONS
+
 from .locations import (
     Bottom,
     Deck,
@@ -43,6 +49,7 @@ MODEL_OPTIONS = DeSerializerOptions(
     type_label="element_type",
     subtype_table=MODEL_TYPE_TABLE,
     flatten=True,
+    metadata=PrintMetadata(long_name="Element type"),
 )
 
 LOCATION_TYPES = [
@@ -61,21 +68,24 @@ LOCATION_OPTIONS = DeSerializerOptions(
     type_name=lambda x: x.name,
     subtype_table=LOCATION_TYPE_TABLE,
     flatten=True,
+    metadata=PrintMetadata(long_name="Location"),
 )
-
-
 VESSEL_OPTIONS = DeSerializerOptions(
-    subs_by_attr="name", subs_collection_name="vessels"
+    subs_by_attr="name",
+    subs_collection_name="vessels",
+    metadata=PrintMetadata(long_name="Vessel"),
 )
+X_OPTIONS = DeSerializerOptions(metadata=PrintMetadata(long_name="x", units="m"))
+Y_OPTIONS = DeSerializerOptions(metadata=PrintMetadata(long_name="x", units="m"))
 
 
 @dataclass
 class StructuralElement:
     """ """
 
-    name: str
-    x: float
-    z: float
+    name: str = field(metadata={DESERIALIZER_OPTIONS: NAME_OPTIONS})
+    x: float = field(metadata={DESERIALIZER_OPTIONS: X_OPTIONS})
+    z: float = field(metadata={DESERIALIZER_OPTIONS: Y_OPTIONS})
     vessel: Vessel = field(metadata={DESERIALIZER_OPTIONS: VESSEL_OPTIONS})
     model: StructuralModel = field(metadata={DESERIALIZER_OPTIONS: MODEL_OPTIONS})
     location: Location = field(metadata={DESERIALIZER_OPTIONS: LOCATION_OPTIONS})

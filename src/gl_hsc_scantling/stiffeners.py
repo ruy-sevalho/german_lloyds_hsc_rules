@@ -9,9 +9,28 @@ from dataclasses import astuple, dataclass, field, fields
 from itertools import chain
 
 import numpy as np
-from dataclass_tools.tools import DESERIALIZER_OPTIONS, DeSerializerOptions
+from dataclass_tools.tools import (
+    DESERIALIZER_OPTIONS,
+    DeSerializerOptions,
+    PrintMetadata,
+)
 
-from .common_field_options import LAMINATE_OPTIONS, NAMED_FIELD_OPTIONS
+from .common_field_options import (
+    ATT_PLATE_1_OPTIONS,
+    ATT_PLATE_2_OPTIONS,
+    BOUND_COND_OPTIONS,
+    DIMENSION_FLANGE_OPTIONS,
+    DIMENSION_WEB_OPTIONS,
+    LAMINATE_FLANGE_OPTIONS,
+    LAMINATE_OPTIONS,
+    LAMINATE_WEB_OPTIONS,
+    NAME_OPTIONS,
+    SPACING_1_OPTIONS,
+    SPACING_2_OPTIONS,
+    SPAN_OPTIONS,
+    STIFF_ATT_ANGLE_OPTIONS,
+    STIFF_ATT_PLATE_OPTIONS,
+)
 from .composites import ABCLaminate, SandwichLaminate, SingleSkinLaminate
 from .structural_model import BoundaryCondition, StructuralModel
 
@@ -208,7 +227,7 @@ class RectSectionElement(HomogeneousSectionElement):
         rad = np.radians(angle)
         sin = np.sin(rad)
         cos = np.cos(rad)
-        return (width * height * (height ** 2 * cos ** 2 + width ** 2 * sin ** 2)) / 12
+        return (width * height * (height**2 * cos**2 + width**2 * sin**2)) / 12
 
     def inertia(self, angle=0) -> Inertia:
         return Inertia(
@@ -306,6 +325,8 @@ class SectionElementListChain(SectionElementList):
 
 @dataclass
 class SectionElementListWithFoot(SectionElementList):
+    name: str
+
     @abc.abstractproperty
     def foot_width(self):
         """Width of stiffener base - counts for attached plate
@@ -343,8 +364,8 @@ class StiffenerSection(SectionElement):
     def bend_stiff(self, angle=0) -> BendStiff:
         bend_stiff_base = self.bend_stiff_base(angle)
         center = self.center(angle)
-        bend_stiff_y = bend_stiff_base.y - self.stiff * center.z ** 2
-        bend_stiff_z = bend_stiff_base.z - self.stiff * center.y ** 2
+        bend_stiff_y = bend_stiff_base.y - self.stiff * center.z**2
+        bend_stiff_z = bend_stiff_base.z - self.stiff * center.y**2
         return BendStiff(bend_stiff_y, bend_stiff_z)
 
     @property
@@ -356,13 +377,17 @@ class StiffenerSection(SectionElement):
 class LBar(SectionElementListWithFoot):
     """L bar profile - composed of a web and a flange. Dimensions in m."""
 
-    laminate_web: ABCLaminate = field(metadata={DESERIALIZER_OPTIONS: LAMINATE_OPTIONS})
-    dimension_web: float
-    laminate_flange: ABCLaminate = field(
-        metadata={DESERIALIZER_OPTIONS: LAMINATE_OPTIONS}
+    laminate_web: ABCLaminate = field(
+        metadata={DESERIALIZER_OPTIONS: LAMINATE_WEB_OPTIONS}
     )
-    dimension_flange: float
-    name: str
+    dimension_web: float = field(metadata={DESERIALIZER_OPTIONS: DIMENSION_WEB_OPTIONS})
+    laminate_flange: ABCLaminate = field(
+        metadata={DESERIALIZER_OPTIONS: LAMINATE_FLANGE_OPTIONS}
+    )
+    dimension_flange: float = field(
+        metadata={DESERIALIZER_OPTIONS: DIMENSION_FLANGE_OPTIONS}
+    )
+    name: str = field(metadata={DESERIALIZER_OPTIONS: NAME_OPTIONS})
 
     @property
     def elmts(self) -> list[Elmt]:
@@ -389,6 +414,7 @@ ELMT_CONTAINER_OPTIONS = DeSerializerOptions(
     type_label="section_profile",
     flatten=True,
     subtype_table=ELMT_CONTAINER_SUBTYPE_TABLE,
+    metadata=PrintMetadata(long_name="Section type"),
 )
 
 
@@ -461,7 +487,9 @@ class PlacedStiffnerSection(SectionElementList):
 
 
 STIFF_SECTION_OPTIONS = DeSerializerOptions(
-    subs_by_attr="name", subs_collection_name="stiffener_sections"
+    subs_by_attr="name",
+    subs_collection_name="stiffener_sections",
+    metadata=PrintMetadata(long_name="Stiffener section", abreviation="section"),
 )
 
 
@@ -476,14 +504,25 @@ class Stiffener(StructuralModel):
     stiff_section: StiffenerSectionWithFoot = field(
         metadata={DESERIALIZER_OPTIONS: STIFF_SECTION_OPTIONS}
     )
-    span: float
-    spacing_1: float
-    spacing_2: float
-    stiff_att_plate: int
-    att_plate_1: ABCLaminate = field(metadata={DESERIALIZER_OPTIONS: LAMINATE_OPTIONS})
-    att_plate_2: ABCLaminate = field(metadata={DESERIALIZER_OPTIONS: LAMINATE_OPTIONS})
-    stiff_att_angle: float = 0
-    bound_cond: BoundaryCondition = BoundaryCondition.FIXED
+    span: float = field(metadata={DESERIALIZER_OPTIONS: SPAN_OPTIONS})
+    spacing_1: float = field(metadata={DESERIALIZER_OPTIONS: SPACING_1_OPTIONS})
+    spacing_2: float = field(metadata={DESERIALIZER_OPTIONS: SPACING_2_OPTIONS})
+    stiff_att_plate: int = field(
+        metadata={DESERIALIZER_OPTIONS: STIFF_ATT_PLATE_OPTIONS}
+    )
+    att_plate_1: ABCLaminate = field(
+        metadata={DESERIALIZER_OPTIONS: ATT_PLATE_1_OPTIONS}
+    )
+    att_plate_2: ABCLaminate = field(
+        metadata={DESERIALIZER_OPTIONS: ATT_PLATE_2_OPTIONS}
+    )
+    stiff_att_angle: float = field(
+        default=0, metadata={DESERIALIZER_OPTIONS: STIFF_ATT_ANGLE_OPTIONS}
+    )
+    bound_cond: BoundaryCondition = field(
+        default=BoundaryCondition.FIXED,
+        metadata={DESERIALIZER_OPTIONS: BOUND_COND_OPTIONS},
+    )
 
     @property
     def spacings(self):

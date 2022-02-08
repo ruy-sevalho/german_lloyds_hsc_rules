@@ -9,17 +9,23 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TYPE_CHECKING
 
+
 if TYPE_CHECKING:
     from .elements import StructuralElement
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
+from dataclass_tools.tools import DESERIALIZER_OPTIONS
 
 from .locations_abc import Location, Pressure
 from .panels import Panel
 from .stiffeners import Stiffener
-
+from .common_field_options import (
+    AIR_GAP_OPTIONS,
+    DEADRISE_OPTIONS,
+    DECKHOUSE_BREADTH_OPTIONS,
+)
 
 # Helper functions, all 'pure'.
 def _pressure_sea_f(z_baseline, draft, p_sea_min, factor_S):
@@ -44,7 +50,7 @@ def _factor_S_fwd_f(vert_acg, length, block_coef, draft):
         [
             np.min(
                 [
-                    0.36 * vert_acg * length ** 0.5 / np.min([block_coef, 0.5]),
+                    0.36 * vert_acg * length**0.5 / np.min([block_coef, 0.5]),
                     3.5 * draft,
                 ]
             ),
@@ -59,7 +65,7 @@ def _factor_S_aft_f(vert_acg, length, draft):
         [
             np.min(
                 [
-                    0.60 * vert_acg * length ** 0.5,
+                    0.60 * vert_acg * length**0.5,
                     2.5 * draft,
                 ]
             ),
@@ -140,7 +146,7 @@ def _param_u_f(area, ref_area):
 
 
 def _coef_k2_f(param_u, k2_min) -> float:
-    k2 = 0.455 - 0.35 * ((param_u ** 0.75 - 1.7) / (param_u ** 0.75 + 1.7))
+    k2 = 0.455 - 0.35 * ((param_u**0.75 - 1.7) / (param_u**0.75 + 1.7))
     return np.max([k2_min, k2])
 
 
@@ -179,7 +185,7 @@ def _coef_kwd_f(x_pos):
 
 
 def _rel_impact_vel_f(sig_wave_height, length):
-    return 4 * sig_wave_height / length ** 0.5 + 1
+    return 4 * sig_wave_height / length**0.5 + 1
 
 
 def _pressure_impact_wet_deck_pre_f(
@@ -515,7 +521,7 @@ class DeckHouseOtherPressure(DeckHousePressure):
 # Location
 @dataclass
 class Bottom(Location):
-    deadrise: float
+    deadrise: float = field(metadata={DESERIALIZER_OPTIONS: DEADRISE_OPTIONS})
     name = "bottom"
 
     @property
@@ -543,8 +549,8 @@ class Deck(Location):
 
 @dataclass
 class WetDeck(Location):
-    deadrise: float
-    air_gap: float
+    deadrise: float = field(metadata={DESERIALIZER_OPTIONS: DEADRISE_OPTIONS})
+    air_gap: float = field(metadata={DESERIALIZER_OPTIONS: AIR_GAP_OPTIONS})
 
     name = "wet deck"
 
@@ -556,7 +562,9 @@ class WetDeck(Location):
 @dataclass
 class DeckHouseMainFront(Location):
 
-    deckhouse_breadth: float
+    deckhouse_breadth: float = field(
+        metadata={DESERIALIZER_OPTIONS: DECKHOUSE_BREADTH_OPTIONS}
+    )
 
     name = "deckhouse main front"
 
@@ -567,7 +575,9 @@ class DeckHouseMainFront(Location):
 
 @dataclass
 class DeckHouseMainSide(Location):
-    deckhouse_breadth: float
+    deckhouse_breadth: float = field(
+        metadata={DESERIALIZER_OPTIONS: DECKHOUSE_BREADTH_OPTIONS}
+    )
     name = "deckhouse main side"
 
     @property
@@ -577,7 +587,9 @@ class DeckHouseMainSide(Location):
 
 @dataclass
 class DeckHouseOther(Location):
-    deckhouse_breadth: float
+    deckhouse_breadth: float = field(
+        metadata={DESERIALIZER_OPTIONS: DECKHOUSE_BREADTH_OPTIONS}
+    )
     name = "deckhouse other"
 
     @property

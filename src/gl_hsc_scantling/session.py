@@ -45,7 +45,7 @@ class Session:
     )
     core_materials: dict[str, CoreMat] = field(default_factory=dict)
     cores: dict[str, Core] = field(default_factory=dict)
-    stiffener_sections: dict[str, StiffenerSection] = field(default_factory=dict)
+    stiffener_sections: dict[str, StiffenerSectionWithFoot] = field(default_factory=dict)
     panels: dict[str, StructuralElement] = field(default_factory=dict)
     stiffener_elements: dict[str, StructuralElement] = field(default_factory=dict)
 

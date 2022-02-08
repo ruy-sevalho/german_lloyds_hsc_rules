@@ -4,6 +4,7 @@ Created on Tue Jun 29 09:38:12 2021
 
 @author: ruy
 """
+from __future__ import annotations
 from abc import ABC
 from dataclasses import dataclass, field
 from enum import Enum
@@ -16,13 +17,12 @@ from dataclass_tools.tools import (
     PrintMetadata,
     serialize_dataclass,
 )
-from marshmallow import Schema, fields
+
 from pylatex import NoEscape, Quantity
 
 from .abrevitation_registry import abv_registry
 from .common_field_options import NAME_OPTIONS
 from .constants import GRAVITY
-from .tex import PrintOptions
 
 
 class TypeOfService(str, Enum):
@@ -273,7 +273,7 @@ class Vessel:
 
     @property
     def sp_len_ratio(self):
-        return self.speed / self.length ** 0.5
+        return self.speed / self.length**0.5
 
     # C3.3.1
     @property
@@ -328,14 +328,14 @@ class Vessel:
             5
             * np.max([self.vert_acg, 1])
             / self.speed
-            * self.length ** 1.5
+            * self.length**1.5
             / (6 + 0.14 * self.length)
         )
 
     @property
     def sig_wave_height(self):
         """C3.3.3.2 Limitation imposed by vertical acceleration at LCG"""
-        return 10.9 * self.vert_acg * self.coef_kcat * self.coef_kh / self.coef_kf ** 2
+        return 10.9 * self.vert_acg * self.coef_kcat * self.coef_kh / self.coef_kf**2
 
     # C3.3.3.2
     @property
@@ -345,7 +345,7 @@ class Vessel:
     # C3.3.3.2
     @property
     def coef_kf(self):
-        return 3.23 / self.length * (2.43 * self.length ** 0.5 + self.speed)
+        return 3.23 / self.length * (2.43 * self.length**0.5 + self.speed)
 
     # C3.3.3.2
     @property
@@ -362,43 +362,43 @@ class Vessel:
     # C3.3.3.2
     @property
     def coef_kh(self):
-        return self.coef_k ** 0.35 * ((1 / self.coef_k ** 2 - 0.11) ** 2 + 1) ** 0.5
+        return self.coef_k**0.35 * ((1 / self.coef_k**2 - 0.11) ** 2 + 1) ** 0.5
 
-    def input_print_options(
-        self,
-        name: PrintOptions = PrintOptions(),
-        speed: PrintOptions = PrintOptions(),
-        displacement: PrintOptions = PrintOptions(),
-        length: PrintOptions = PrintOptions(),
-        beam: PrintOptions = PrintOptions(),
-        fwd_perp: PrintOptions = PrintOptions(),
-        aft_perp: PrintOptions = PrintOptions(),
-        draft: PrintOptions = PrintOptions(),
-        z_baseline: PrintOptions = PrintOptions(),
-        block_coef: PrintOptions = PrintOptions(),
-        water_plane_area: PrintOptions = PrintOptions(),
-        lcg: PrintOptions = PrintOptions(),
-        deadrise_lcg: PrintOptions = PrintOptions(round_precision=1),
-        dist_hull_cl: PrintOptions = PrintOptions(),
-        type_of_service: PrintOptions = PrintOptions(),
-        service_range: PrintOptions = PrintOptions(),
-    ):
-        table = {
-            "name": name,
-            "speed": speed,
-            "displacement": displacement,
-            "length": length,
-            "beam": beam,
-            "fwd_perp": fwd_perp,
-            "aft_perp": aft_perp,
-            "draft": draft,
-            "z_baseline": z_baseline,
-            "block_coef": block_coef,
-            "water_plane_area": water_plane_area,
-            "lcg": lcg,
-            "deadrise_lcg": deadrise_lcg,
-            "dist_hull_cl": dist_hull_cl,
-            "type_of_service": type_of_service,
-            "service_range": service_range,
-        }
-        return table
+    # def input_print_options(
+    #     self,
+    #     name: PrintOptions = PrintOptions(),
+    #     speed: PrintOptions = PrintOptions(),
+    #     displacement: PrintOptions = PrintOptions(),
+    #     length: PrintOptions = PrintOptions(),
+    #     beam: PrintOptions = PrintOptions(),
+    #     fwd_perp: PrintOptions = PrintOptions(),
+    #     aft_perp: PrintOptions = PrintOptions(),
+    #     draft: PrintOptions = PrintOptions(),
+    #     z_baseline: PrintOptions = PrintOptions(),
+    #     block_coef: PrintOptions = PrintOptions(),
+    #     water_plane_area: PrintOptions = PrintOptions(),
+    #     lcg: PrintOptions = PrintOptions(),
+    #     deadrise_lcg: PrintOptions = PrintOptions(round_precision=1),
+    #     dist_hull_cl: PrintOptions = PrintOptions(),
+    #     type_of_service: PrintOptions = PrintOptions(),
+    #     service_range: PrintOptions = PrintOptions(),
+    # ):
+    #     table = {
+    #         "name": name,
+    #         "speed": speed,
+    #         "displacement": displacement,
+    #         "length": length,
+    #         "beam": beam,
+    #         "fwd_perp": fwd_perp,
+    #         "aft_perp": aft_perp,
+    #         "draft": draft,
+    #         "z_baseline": z_baseline,
+    #         "block_coef": block_coef,
+    #         "water_plane_area": water_plane_area,
+    #         "lcg": lcg,
+    #         "deadrise_lcg": deadrise_lcg,
+    #         "dist_hull_cl": dist_hull_cl,
+    #         "type_of_service": type_of_service,
+    #         "service_range": service_range,
+    #     }
+    #     return table
