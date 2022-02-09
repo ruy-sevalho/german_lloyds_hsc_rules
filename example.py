@@ -7,10 +7,10 @@ from dataclass_tools.tools import (
     deserialize_dataclass,
     serialize_dataclass,
 )
-from pylatex import NoEscape
+from pylatex import NoEscape, PageStyle
 
 from gl_hsc_scantling.composites import PlyStack
-from gl_hsc_scantling.report import Data
+
 from gl_hsc_scantling.report_config import default_report_config
 from gl_hsc_scantling.shortcut import (
     Bottom,
@@ -136,9 +136,9 @@ H80 = CoreMat(
 core_mats = [H80]
 session.add_stuff(core_mats)
 
-H80_20mm = Core(name="H80_20mm", core_material=H80, thickness=0.02)
-cores = [H80_20mm]
-session.add_stuff(cores)
+# H80_20mm = Core(name="H80_20mm", core_material=H80, core_thickness=0.02)
+# cores = [H80_20mm]
+# session.add_stuff(cores)
 
 orientation = [0, 90]
 et_0900_20x_input = PlyStack(
@@ -158,7 +158,7 @@ sandwich_laminate = SandwichLaminate(
     name="Sandwich Laminate",
     outter_laminate_ply_stack=sandwich_skin_input,
     inner_laminate_ply_stack=sandwich_skin_input,
-    core=H80_20mm,
+    core=Core(core_material=H80, core_thickness=0.02),
 )
 laminates = [et_0900_20x, et_0900_20x_45, sandwich_laminate]
 session.add_stuff(laminates)

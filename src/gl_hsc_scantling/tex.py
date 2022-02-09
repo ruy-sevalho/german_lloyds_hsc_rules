@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import quantities as pq
 from dataclass_tools.tools import PrintWrapper, serialize_dataclass
+import pylatex
 from pylatex import (
     Document,
     MiniPage,
@@ -74,6 +75,12 @@ STIFFENER_SECTION_DEFINITION_CAPTION = "stiffener section"
 PANELS_SECTION_TITLE = "Panels"
 STIFFENERS_SECTION_TITLE = "Stiffeners"
 INPUTS_TITLE = "Inputs"
+
+pylatex.quantities.UNIT_NAME_TRANSLATIONS.update(
+    {"nautical_miles_per_hour": "kt", "arcdegree": "degree", "p": "pascal"}
+)
+
+kN = pq.UnitQuantity("kiloNewton", pq.N * 1e3, symbol="kN")
 
 
 class Center(Environment):
@@ -462,6 +469,7 @@ def generate_report(
     doc.preamble.append(Package("float"))
     doc.preamble.append(Package("pdflscape"))
     doc.preamble.append(Package("hyperref"))
+    doc.preamble.append(Package("bookmark"))
     doc.preamble.append(NoEscape(r"\DeclareSIUnit\kt{kt}"))
     doc.preamble.append(NoEscape(r"\sisetup{round-mode=places}"))
     # doc.preamble.append(NoEscape(r"\sisetup{scientific-notation=true}"))
@@ -730,5 +738,5 @@ def generate_report(
     doc.append(landscape)
 
     doc.generate_tex(file_name)
-    doc.generate_pdf(file_name)
+    doc.generate_pdf(file_name, clean_tex=False)
     return doc

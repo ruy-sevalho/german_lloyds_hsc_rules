@@ -50,7 +50,7 @@ from .common_field_options import (
     SYMMETRIC_OPTIONS,
     THICKNESS_OPTIONS,
 )
-from .report import Criteria
+
 
 
 def _matrix_inv(matrix) -> np.ndarray:
@@ -198,13 +198,13 @@ class LaminaParts:
     def modulus_y_(self) -> float:
         return (
             self.matrix.modulus_x
-            / (1 - self.matrix.poisson ** 2)
-            * (1 + 0.85 * self._f_vol_cont ** 2)
+            / (1 - self.matrix.poisson**2)
+            * (1 + 0.85 * self._f_vol_cont**2)
             / (
                 (1 - self._f_vol_cont) ** 1.25
                 + self._f_vol_cont
                 * self.matrix.modulus_x
-                / (self.fiber.modulus_y * (1 - self.matrix.poisson ** 2))
+                / (self.fiber.modulus_y * (1 - self.matrix.poisson**2))
             )
         )
 
@@ -216,7 +216,7 @@ class LaminaParts:
     def modulus_xy_(self):
         return (
             self.matrix.modulus_xy
-            * (1 + 0.8 * self._f_vol_cont ** 0.8)
+            * (1 + 0.8 * self._f_vol_cont**0.8)
             / (
                 (1 - self._f_vol_cont) ** 1.25
                 + self.matrix.modulus_xy * self._f_vol_cont / self.fiber.modulus_xy
@@ -375,7 +375,9 @@ class Core:
     core_material: CoreMat = field(
         metadata={DESERIALIZER_OPTIONS: CORE_MATERIAL_OPTIONS}
     )
-    core_thickness: float = field(metadata={DESERIALIZER_OPTIONS: CORE_THICKNESS_OPTIONS})
+    core_thickness: float = field(
+        metadata={DESERIALIZER_OPTIONS: CORE_THICKNESS_OPTIONS}
+    )
 
 
 ply_material_options = DeSerializerOptions(
@@ -386,6 +388,14 @@ ply_material_options = DeSerializerOptions(
 orientation_options = DeSerializerOptions(
     metadata=PrintMetadata(long_name="Orientation", units="degree")
 )
+
+
+@dataclass
+class PlyState:
+    strain_global: np.ndarray
+    stress_global: np.ndarray
+    strain_local: np.ndarray
+    stress_local: np.ndarray
 
 
 @dataclass
@@ -436,9 +446,9 @@ class Ply:
         c = np.cos(np.radians(angle))
         return np.array(
             [
-                [c ** 2, s ** 2, 2 * s * c],
-                [s ** 2, c ** 2, -2 * s * c],
-                [-s * c, s * c, (c ** 2 - s ** 2)],
+                [c**2, s**2, 2 * s * c],
+                [s**2, c**2, -2 * s * c],
+                [-s * c, s * c, (c**2 - s**2)],
             ]
         )
 
@@ -459,7 +469,7 @@ class Ply:
     @property
     def single_ABD_matrix(self):
         A = self.Q_global * self.material.thickness
-        D = self.Q_global * self.material.thickness ** 3 / 12
+        D = self.Q_global * self.material.thickness**3 / 12
         B = np.zeros((3, 3))
         return np.vstack((np.hstack((A, B)), np.hstack((B, D))))
 
@@ -483,26 +493,13 @@ class Ply:
         strain = np.array(strain)
         stress = self.stress(strain)
         strain_local = self.strain_local(strain)
-        stress_local1 = self.material.Q_local @ strain_local
-        strain_limit = self.material.limit_strain
-        # stress_local2 for checking math is right
-        # stress_local2 = self.rotation_matrix @ stress
-        return {
-            "strain_g_x": Criteria(value=strain[0], allowed=strain_limit[0]),
-            "strain_g_y": Criteria(value=strain[0], allowed=strain_limit[1]),
-            "ratio_g_y": np.abs(strain_limit[0] / strain[1]),
-            "strain_g_xy": strain[2],
-            "stress_g_x": stress[0],
-            "stress_g_y": stress[1],
-            "stress_g_xy": stress[2],
-            "strain_l_x": strain_local[0],
-            "strain_l_y": strain_local[1],
-            "strain_l_xy": strain_local[2],
-            "ratio_l_xy": np.abs(strain_limit[1] / strain_local[2]),
-            "stress_l1_x": stress_local1[0],
-            "stress_l1_y": stress_local1[1],
-            "stress_l1_xy": stress_local1[2],
-        }
+        stress_local = self.material.Q_local @ strain_local
+        return PlyState(
+            strain_global=strain,
+            stress_global=stress,
+            strain_local=strain_local,
+            stress_local=stress_local,
+        )
 
 
 @dataclass
@@ -637,7 +634,7 @@ class ABCLaminate(ABC):
                     [
                         ply.modulus[i]
                         * (
-                            ply.material.thickness ** 3 / 12
+                            ply.material.thickness**3 / 12
                             + ply.material.thickness * np.average(ply.z_coord) ** 2
                         )
                         for ply in self.plies
@@ -691,25 +688,19 @@ class ABCLaminate(ABC):
         strain = strain_mid_plane
         return strain[:3] + z * strain[3:]
 
-    def response_plies(self, load):
+    def response_plies(self, load) -> list[PlyState]:
         responses = []
-        for i, ply in enumerate(self.plies):
+        for ply in (self.plies):
             z = ply.z_coord[np.argmax(np.max(np.abs(ply.z_coord)))]
             strain_mp = self.strain_mid_plane(load)
             strain = self.strain_2D(strain_mp, z)
-            responses.append({"ply": str(i), **ply.response(strain)})
+            responses.append(ply.ply.response(strain))
         return responses
 
+    # TODO re-write whole fucntion
     def _max_resp_plies(self, load):
         responses = self.response_plies(load)
-        ply_max_x = np.argmin([ply["ratio_g_x"] for ply in responses])
-        ply_max_shear = np.argmin([ply["ratio_l_xy"] for ply in responses])
-        return {
-            # 'CLT_max_uni_strain_ply': ply_max_x,
-            "CLT_uni_ratio": responses[ply_max_x]["ratio_g_x"],
-            # 'CLT_max_shear_strain_ply': ply_max_shear,
-            "CLT_shear_ratio": responses[ply_max_shear]["ratio_l_xy"],
-        }
+        return 
 
     def _response_simplified(self, moment):
         z_edges = [self.plies[i].z_coord[i] - self.neutral_axis[0] for i in [0, -1]]

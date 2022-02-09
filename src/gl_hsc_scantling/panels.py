@@ -24,7 +24,7 @@ from .composites import ABCLaminate, SandwichLaminate, SingleSkinLaminate
 from .structural_model import BoundaryCondition, StructuralModel
 from .vessel import Vessel
 
-
+# TODO refactor panel_coef methods. Use dataclasses instead of primitive dicts
 @dataclass
 class Panel(StructuralModel):
 
@@ -45,9 +45,8 @@ class Panel(StructuralModel):
     chine_angle: float = field(
         metadata={DESERIALIZER_OPTIONS: CHINE_ANGLE_OPTIONS}, default=0
     )
-    # @property
-    # def _deadrise_eff(self):
-    #     return np.max([np.min([self.deadrise, 30]), 10])
+
+    direction_table = {"x": 0, "y": 1}
 
     @property
     def geo_asp_r(self):
@@ -146,25 +145,28 @@ class Panel(StructuralModel):
                 0.5,
             ],
         }
-        table = {"fixed": fixed, "simp_sup": simp_sup}
+        table = {
+            BoundaryCondition.FIXED: fixed,
+            BoundaryCondition.SIMPLY_SUPPORTED: simp_sup,
+        }
         return table[self.bound_cond]
 
-    def panel_coef(self, coef_type):
+    def _panel_coef(self, coef_type):
         return np.interp(
             self.corr_asp_r, self.coef_table["ar"], self.coef_table[coef_type]
         )
 
     @property
     def beta(self):
-        return np.interp(
-            self.corr_asp_r, self.coef_table["ar"], self.coef_table["beta"]
-        )
+        return self._panel_coef("beta")
 
     @property
     def gamma(self):
-        return np.interp(
-            self.corr_asp_r, self.coef_table["ar"], self.coef_table["gamma"]
-        )
+        return self._panel_coef("gamma")
+
+    @property
+    def alpha(self):
+        return self._panel_coef("alpha")
 
     @property
     def curve_correction(self):
@@ -175,26 +177,19 @@ class Panel(StructuralModel):
     def max_bend_moment(self, pressure: float):
         """C3.8.3.3.1"""
 
-        return (
-            self.panel_coef("beta")
-            * pressure
-            * self.span**2
-            * self.curve_correction
-            / 6
-        )
+        return self.beta * pressure * self.span**2 * self.curve_correction / 6
 
     def max_shear_force(self, pressure: float):
         """C3.8.3.3.2"""
 
-        return self.panel_coef("gamma") * pressure * self.span
+        return self.gamma * pressure * self.span
 
-    @property
-    def max_lateral_deflection(self):
+    def max_lateral_deflection(self, pressure: float):
         """C3.8.3.3.3"""
 
         return (
-            self.panel_coef("gamma")
-            * self.design_pressure
+            self.alpha
+            * pressure
             * self.span**4
             / (12 * self.laminate.bend_stiff[self.direction_table[self.span_direction]])
         )
@@ -209,24 +204,17 @@ class Panel(StructuralModel):
         }
         return table(type(self.laminate))
 
-    # Assuming load in the x direction.
-    # Maybe implement direction selection later
-    @property
-    def load_array(self):
-        return np.array([0, 0, 0, self.max_bend_moment, 0, 0])
+    def load_array(self, pressure: float):
+        table = {"x": 3, "y": 4}
+        zeros = np.zeros(6)
+        zeros[table[self.span_direction]] = self.max_bend_moment(pressure)
+        return zeros
 
-    @property
-    def plies_responses(self):
-        return self.laminate.response_plies(self.load_array)
+    def plies_responses(self, pressure: float):
+        return self.laminate.response_plies(self.load_array(pressure))
 
-    @property
-    def resume(self):
-        resume = {
-            "pressure (kN/m2)": self.design_pressure,
-            "type": self.design_pressure_type,
-        }
-        resume.update(self.laminate.response_resume(self.load_array))
-        return resume
+    def resume(self, pressure: float):
+        return self.laminate.response_resume(self.load_array(pressure))
 
     @property
     def chine_corr_factor(self):
