@@ -17,3 +17,7 @@ report.log
 report.pdf
 report.synctex.gz
 report.tex
+report.toc
+report.lot
+pandas_exploration.ipynb
+example_load_from_json.py
