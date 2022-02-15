@@ -11,7 +11,7 @@ from gl_hsc_scantling.shortcut import Core, CoreMat
 @pt.fixture
 def H80_input():
     return {
-        "core_type": "solid",
+        "core_type": "SOLID",
         "strength_shear": 950,
         "modulus_shear": 23000,
         "strength_tens": 2200,
@@ -29,11 +29,11 @@ def H80(H80_input):
     return CoreMat(**H80_input)
 
 
-# @pt.fixture
-# def H80_20mm_input(H80):
-#     return {"core_material": H80, "thickness": 0.02, "name": "H80_20mm"}
+@pt.fixture
+def H80_20mm_input(H80):
+    return {"material": H80, "thickness": 0.02, "name": "H80_20mm"}
 
 
-# @pt.fixture
-# def H80_20mm(H80_20mm_input):
-#     return Core(**H80_20mm_input)
+@pt.fixture
+def H80_20mm(H80_20mm_input):
+    return Core(**H80_20mm_input)

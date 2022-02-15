@@ -129,12 +129,12 @@ def sandwich_laminate_skin(sandwich_laminate_skin_input):
 
 
 @pt.fixture
-def sandwich_laminate(sandwich_laminate_skin_input, H80):
+def sandwich_laminate(sandwich_laminate_skin_input, H80_20mm):
     return SandwichLaminate(
         name="sandwich_laminate",
         outter_laminate_ply_stack=sandwich_laminate_skin_input,
         inner_laminate_ply_stack=sandwich_laminate_skin_input,
-        core=Core(core_material=H80, core_thickness=0.02),
+        core=H80_20mm,
     )
 
 

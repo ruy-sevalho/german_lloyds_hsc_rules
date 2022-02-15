@@ -8,7 +8,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 import numpy as np
+import pandas as pd
 from dataclass_tools.tools import DESERIALIZER_OPTIONS, DeSerializerOptions
+
+from gl_hsc_scantling.utils import Criteria
 
 from .common_field_options import (
     BOUND_COND_OPTIONS,
@@ -20,17 +23,17 @@ from .common_field_options import (
     DIM_Y_OPTIONS,
     LAMINATE_OPTIONS,
 )
-from .composites import ABCLaminate, SandwichLaminate, SingleSkinLaminate
-from .structural_model import BoundaryCondition, StructuralModel
+from .composites import Laminate
+from .structural_model import BoundaryCondition
 from .vessel import Vessel
 
 # TODO refactor panel_coef methods. Use dataclasses instead of primitive dicts
 @dataclass
-class Panel(StructuralModel):
+class Panel:
 
     dim_x: float = field(metadata={DESERIALIZER_OPTIONS: DIM_X_OPTIONS})
     dim_y: float = field(metadata={DESERIALIZER_OPTIONS: DIM_Y_OPTIONS})
-    laminate: ABCLaminate = field(metadata={DESERIALIZER_OPTIONS: LAMINATE_OPTIONS})
+    laminate: Laminate = field(metadata={DESERIALIZER_OPTIONS: LAMINATE_OPTIONS})
     curvature_x: float = field(
         default=0, metadata={DESERIALIZER_OPTIONS: CURVATURE_X_OPTIONS}
     )
@@ -199,10 +202,10 @@ class Panel(StructuralModel):
         """C3.8.3.3.3"""
 
         table = {
-            SingleSkinLaminate: 0.015 * self.span,
-            SandwichLaminate: 0.01 * self.span,
+            "SingleSkinLaminate": 0.015 * self.span,
+            "SandwichLaminate": 0.01 * self.span,
         }
-        return table(type(self.laminate))
+        return table(type(self.laminate).__name__)
 
     def load_array(self, pressure: float):
         table = {"x": 3, "y": 4}
@@ -213,11 +216,23 @@ class Panel(StructuralModel):
     def plies_responses(self, pressure: float):
         return self.laminate.response_plies(self.load_array(pressure))
 
-    def resume(self, pressure: float):
-        return self.laminate.response_resume(self.load_array(pressure))
-
     @property
     def chine_corr_factor(self):
         xp = [50, 100, 110, 120, 130, 140, 150, 160, 170]
         fp = [1, 1.005, 1.01, 1.02, 1.037, 1.061, 1.108, 1.23, 1.545]
         return np.interp(self.chine_angle, xp, fp)
+
+    def rule_check(self, pressure):
+        laminate_check = self.laminate.panel_rule_check(self, pressure=pressure)
+        deflection_check = pd.DataFrame(
+            {
+                "deflection": [
+                    Criteria(
+                        self.max_lateral_deflection(pressure=pressure),
+                        self.limit_deflection,
+                        1,
+                    )
+                ]
+            }
+        )
+        return pd.concat([deflection_check, laminate_check], axis=1)

@@ -99,13 +99,13 @@ def session_example():
         modulus_comp=80000,
         density=80,
         resin_absorption=0.35,
-        core_type="solid",
+        core_type="SOLID",
     )
     core_mats = [H80]
     session.add_stuff(core_mats)
-    # H80_20mm = Core(name="H80_20mm", core_material=H80, core_thickness=0.02)
-    # cores = [H80_20mm]
-    # session.add_stuff(cores)
+    H80_20mm = Core(name="H80_20mm", material=H80, thickness=0.02)
+    cores = [H80_20mm]
+    session.add_stuff(cores)
 
     orientation = [0, 90]
     et_0900_20x_input = PlyStack(
@@ -125,7 +125,7 @@ def session_example():
         name="Sandwich Laminate",
         outter_laminate_ply_stack=sandwich_skin_input,
         inner_laminate_ply_stack=sandwich_skin_input,
-        core=Core(core_material=H80, core_thickness=0.02),
+        core=H80_20mm,
     )
     laminates = [et_0900_20x, et_0900_20x_45, sandwich_laminate]
     session.add_stuff(laminates)

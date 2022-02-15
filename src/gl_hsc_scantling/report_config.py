@@ -1,11 +1,49 @@
-from gl_hsc_scantling.common_field_options import (
-    F_AREA_DENSITY_OPTIONS,
-    F_MASS_CONT_OPTIONS,
-    THICKNESS_OPTIONS,
-)
-from gl_hsc_scantling.composites import PlyStack
+from dataclasses import dataclass, fields
+from typing import Optional
+from dataclass_tools.tools import DeSerializerOptions, DESERIALIZER_OPTIONS
 
-from .tex import PrintOptions, ReportConfig
+
+@dataclass
+class PrintOptions:
+    """[summary]"""
+
+    convert_units: Optional[str] = None
+    round_precision: int = 2
+    label: Optional[str] = None
+    description: Optional[str] = None
+
+
+@dataclass
+class ReportConfig:
+    modulus_x: PrintOptions = PrintOptions(
+        convert_units="GPa",
+        label=r"E\textsubscript{x}",
+        description="Modulus of elasticity - x direction",
+    )
+    modulus_y: PrintOptions = PrintOptions(convert_units="GPa")
+    modulus_xy: PrintOptions = PrintOptions(convert_units="GPa")
+    density: PrintOptions = PrintOptions(round_precision=0)
+    max_strain_x: PrintOptions = PrintOptions()
+    max_strain_xy: PrintOptions = PrintOptions()
+    f_mass_cont: PrintOptions = PrintOptions()
+    f_area_density: PrintOptions = PrintOptions()
+    thickness: PrintOptions = PrintOptions()
+    orientation: PrintOptions = PrintOptions()
+    multiple: PrintOptions = PrintOptions()
+    strength_shear: PrintOptions = PrintOptions()
+    modulus_shear: PrintOptions = PrintOptions()
+    strength_tens: PrintOptions = PrintOptions()
+    modulus_tens: PrintOptions = PrintOptions()
+    strength_comp: PrintOptions = PrintOptions()
+    modulus_comp: PrintOptions = PrintOptions()
+    resin_absorption: PrintOptions = PrintOptions()
+    core_type: PrintOptions = PrintOptions()
+    dimension_web: PrintOptions = PrintOptions()
+    dimension_flange: PrintOptions = PrintOptions()
+
+    def to_dict(self):
+        return {field_.name: getattr(self, field_.name) for field_ in fields(self)}
+
 
 modulus_print_options = PrintOptions(convert_units="GPa")
 density_print_options = PrintOptions(round_precision=0)

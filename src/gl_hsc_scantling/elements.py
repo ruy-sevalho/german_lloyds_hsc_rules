@@ -6,17 +6,19 @@ Created on Fri Aug  7 15:36:31 2020
 
 CODE FOR USING German Lloyd 2012 High Speed Craft strucutural rules
 # """
+from typing import Union
 from dataclasses import dataclass, field
 from enum import Enum
 from re import L
 
 import numpy as np
+import pandas as pd
 from dataclass_tools.tools import (
     DESERIALIZER_OPTIONS,
     DeSerializerOptions,
     PrintMetadata,
 )
-
+from quantities import Quantity
 from .common_field_options import NAME_OPTIONS
 
 from .locations import (
@@ -32,7 +34,6 @@ from .locations import (
 from .locations_abc import Location
 from .panels import Panel
 from .stiffeners import Stiffener
-from .structural_model import StructuralModel
 from .vessel import Vessel
 
 
@@ -87,7 +88,9 @@ class StructuralElement:
     x: float = field(metadata={DESERIALIZER_OPTIONS: X_OPTIONS})
     z: float = field(metadata={DESERIALIZER_OPTIONS: Y_OPTIONS})
     vessel: Vessel = field(metadata={DESERIALIZER_OPTIONS: VESSEL_OPTIONS})
-    model: StructuralModel = field(metadata={DESERIALIZER_OPTIONS: MODEL_OPTIONS})
+    model: Union[Panel, Stiffener] = field(
+        metadata={DESERIALIZER_OPTIONS: MODEL_OPTIONS}
+    )
     location: Location = field(metadata={DESERIALIZER_OPTIONS: LOCATION_OPTIONS})
 
     @property
@@ -114,4 +117,17 @@ class StructuralElement:
 
     @property
     def design_pressure(self):
-        return self.pressures[self.design_pressure_type]
+        return np.max([pressure for pressure in self.pressures.values()])
+
+    @property
+    def rule_check(self):
+        p = self.design_pressure
+        resume = pd.DataFrame(
+            {
+                "name": [self.name],
+                "desgin_pressure_type": [self.design_pressure_type],
+                "design_pressure": [Quantity(p, self.location.units)],
+            }
+        )
+        results = self.model.rule_check(pressure=self.design_pressure)
+        return pd.concat([resume, results], axis=1)

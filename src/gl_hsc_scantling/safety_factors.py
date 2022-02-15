@@ -1,0 +1,1 @@
+CORE_SHEAR_SF = 2.5

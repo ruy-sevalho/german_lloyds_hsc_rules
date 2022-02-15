@@ -33,6 +33,7 @@ from pylatex.math import Math
 from pylatex.utils import bold
 from gl_hsc_scantling.elements import LOCATION_TYPES
 from gl_hsc_scantling.locations_abc import Location
+from gl_hsc_scantling.report_config import PrintOptions, ReportConfig
 
 from gl_hsc_scantling.stiffeners import StiffenerSectionWithFoot
 
@@ -64,8 +65,8 @@ LAMINATE_COMPOSED_CAPTION = "Laminates - properties calculated from fiber and ma
 CAPTIONS_VESSEL = [VESSEL_INPUT_CAPTION, VESSEL_LOADS_CAPTION]
 LAMINA_MONLITH_CAPTION = "Laminas"
 LAMINA_PARTS_CAPTION = "Laminas - definied by fiber and matirx combination"
-single_skin_definition_table_caption = "single skin laminate"
-sandwich_laminate_arguments_table_caption = "sandwich laminate"
+SINGLE_SKIN_DEFINITION_TABLE_CAPTION = "single skin laminate"
+SANDWICH_LAMINATE_ARGUMENTS_TABLE_CAPTION = "core and symmetry otpions"
 CORES_SUB_SECTION_TITLE = "Cores"
 CORE_MATERIAL_TABLE_CAPTION = "Core materials"
 OUTTER_SKIN_CATPION = "outter skin"
@@ -75,6 +76,9 @@ STIFFENER_SECTION_DEFINITION_CAPTION = "stiffener section"
 PANELS_SECTION_TITLE = "Panels"
 STIFFENERS_SECTION_TITLE = "Stiffeners"
 INPUTS_TITLE = "Inputs"
+PLY_STACK_LIST = "ply stack list"
+PLY_STACK_OPTIONS = "ply stack options"
+RULE_CHECK_RESULT_CAPTION = "Results"
 
 pylatex.quantities.UNIT_NAME_TRANSLATIONS.update(
     {"nautical_miles_per_hour": "kt", "arcdegree": "degree", "p": "pascal"}
@@ -97,42 +101,6 @@ class TableOfContents(CommandBase):
 
 class ListOfTables(CommandBase):
     pass
-
-
-@dataclass
-class PrintOptions:
-    """[summary]"""
-
-    convert_units: Optional[str] = None
-    round_precision: int = 2
-
-
-@dataclass
-class ReportConfig:
-    modulus_x: PrintOptions = PrintOptions(convert_units="GPa")
-    modulus_y: PrintOptions = PrintOptions(convert_units="GPa")
-    modulus_xy: PrintOptions = PrintOptions(convert_units="GPa")
-    density: PrintOptions = PrintOptions(round_precision=0)
-    max_strain_x: PrintOptions = PrintOptions()
-    max_strain_xy: PrintOptions = PrintOptions()
-    f_mass_cont: PrintOptions = PrintOptions()
-    f_area_density: PrintOptions = PrintOptions()
-    thickness: PrintOptions = PrintOptions()
-    orientation: PrintOptions = PrintOptions()
-    multiple: PrintOptions = PrintOptions()
-    strength_shear: PrintOptions = PrintOptions()
-    modulus_shear: PrintOptions = PrintOptions()
-    strength_tens: PrintOptions = PrintOptions()
-    modulus_tens: PrintOptions = PrintOptions()
-    strength_comp: PrintOptions = PrintOptions()
-    modulus_comp: PrintOptions = PrintOptions()
-    resin_absorption: PrintOptions = PrintOptions()
-    core_type: PrintOptions = PrintOptions()
-    dimension_web: PrintOptions = PrintOptions()
-    dimension_flange: PrintOptions = PrintOptions()
-
-    def to_dict(self):
-        return {field_.name: getattr(self, field_.name) for field_ in fields(self)}
 
 
 def _print_quantity(
@@ -191,7 +159,13 @@ def _single_entity_dict_to_table_list(
             _print_type(
                 printable.value,
                 disp_units=True,
-                **asdict(options_dict.get(key, PrintOptions())),
+                # why I would ever do this to myself is beyond me, but hey here we are
+                **dict(
+                    filter(
+                        lambda item: item[0] in ["convert_units", "round_precision"],
+                        asdict(options_dict.get(key, PrintOptions())).items(),
+                    )
+                ),
             ),
         ]
         for key, printable in inp.items()
@@ -210,7 +184,14 @@ def _list_of_entities_dicts_to_table_list(
     table = [
         [
             _print_type(
-                printable.value, **asdict(options_dict.get(key, PrintOptions()))
+                printable.value,
+                # Turned out once wasn't enough
+                **dict(
+                    filter(
+                        lambda item: item[0] in ["convert_units", "round_precision"],
+                        asdict(options_dict.get(key, PrintOptions())).items(),
+                    )
+                ),
             )
             for key, printable in entity.items()
         ]
@@ -349,21 +330,24 @@ def _add_ply_stack_tables(
     ply_stack: PlyStack,
     options_dict: dict[str, PrintOptions] = dict(),
     center: bool = True,
+    lam_name: str = "",
 ):
     tabulars = Center() if center else list()
     tabulars.append(
-        _add_tabular(
+        _add_table(
             _list_of_entities_dicts_to_table_list(
                 ply_stack.print_stack_list, header=True, options_dict=options_dict
             ),
+            caption=f"{lam_name} {PLY_STACK_LIST}",
             horizontal_lines=[0],
         )
     )
     tabulars.append(
-        _add_tabular(
+        _add_table(
             _list_of_entities_dicts_to_table_list(
                 [ply_stack.print_stack_options], header=True, options_dict=options_dict
             ),
+            caption=f"{lam_name} {PLY_STACK_OPTIONS}",
             horizontal_lines=[0],
         )
     )
@@ -376,12 +360,8 @@ def _single_skin_laminate_tables(
     options_dict: dict[str, PrintOptions] = dict(),
     center: bool = True,
 ):
-    return _add_table_(
-        data=_add_ply_stack_tables(
-            lam.ply_stack, options_dict=options_dict, center=center
-        ),
-        caption=f"{lam.name} - {single_skin_definition_table_caption}",
-        label=label,
+    return _add_ply_stack_tables(
+        lam.ply_stack, options_dict=options_dict, center=center, lam_name=lam.name
     )
 
 
@@ -395,34 +375,32 @@ def _sandwich_laminate_tables(
     sandwich_laminate_options_data = _list_of_entities_dicts_to_table_list(
         [lam.print_laminate_options], header=True, options_dict=options_dict
     )
-    sandwich_laminate_options_tabular = _add_tabular(
-        sandwich_laminate_options_data, horizontal_lines=[0]
+    sandwich_laminate_options_table = _add_table(
+        sandwich_laminate_options_data,
+        caption=f"{lam.name} {SANDWICH_LAMINATE_ARGUMENTS_TABLE_CAPTION}",
+        horizontal_lines=[0],
     )
-    container = Center() if center else list()
-    container.append(sandwich_laminate_options_tabular)
+    if center:
+        center_ = Center()
+        center_.append(sandwich_laminate_options_table)
+        tables.append(center_)
+    else:
+        tables.append(sandwich_laminate_options_table)
     tables.append(
-        _add_table_(
-            data=container,
-            caption=f"{lam.name} - {sandwich_laminate_arguments_table_caption}",
-        )
-    )
-    outter_skin_laminate_tabular = _add_ply_stack_tables(
-        lam.outter_laminate_ply_stack, options_dict=options_dict, center=center
-    )
-    tables.append(
-        _add_table_(
-            data=outter_skin_laminate_tabular,
-            caption=f"{lam.name} {OUTTER_SKIN_CATPION}",
+        _add_ply_stack_tables(
+            lam.outter_laminate_ply_stack,
+            options_dict=options_dict,
+            center=center,
+            lam_name=f"{lam.name} outter skin",
         )
     )
     if not (lam.antisymmetric or lam.symmetric):
-        inner_skin_laminate_tabular = _add_ply_stack_tables(
-            lam.inner_laminate_ply_stack, options_dict=options_dict, center=center
-        )
         tables.append(
-            _add_table_(
-                data=inner_skin_laminate_tabular,
-                caption=f"{lam.name} {INNER_SKIN_CATPION}",
+            _add_ply_stack_tables(
+                lam.inner_laminate_ply_stack,
+                options_dict=options_dict,
+                center=center,
+                lam_name=f"{lam.name} inner skin",
             )
         )
     return tables
@@ -578,6 +556,20 @@ def generate_report(
         horizontal_lines=[1],
     )
     section_constituent_materials.append(core_materials_table)
+    data = [
+        serialize_dataclass(item, printing_format=True, include_names=True)
+        for item in session.cores.values()
+    ]
+    cores_input = _list_of_entities_dicts_to_table_list(
+        entities=data, options_dict=display_options, header=True, split_units=True
+    )
+    cores_table = _add_table(
+        table_array=cores_input,
+        # cols="l c c c c c",
+        caption=CORES_SUB_SECTION_TITLE,
+        horizontal_lines=[1],
+    )
+    section_constituent_materials.append(cores_table)
     # section_materials.append(sub_section_cores)
 
     # Laminae data
@@ -632,9 +624,10 @@ def generate_report(
     for lam in filter(
         lambda lam: isinstance(lam, SingleSkinLaminate), session.laminates.values()
     ):
-        data = _single_skin_laminate_tables(lam, options_dict=display_options)
+        _single_skin_laminate_tables(lam, options_dict=display_options)
         sub_sub_section = Subsubsection(lam.name)
-        sub_sub_section.append(data)
+        for data in _single_skin_laminate_tables(lam, options_dict=display_options):
+            sub_sub_section.append(data)
         sub_section_laminates.append(sub_sub_section)
 
     # Sandwich laminates
@@ -694,6 +687,8 @@ def generate_report(
 
     section_panels.append(sub_section_panels_inputs)
     landscape.append(section_panels)
+    sub_section = Subsection(RULE_CHECK_RESULT_CAPTION)
+
     doc.append(landscape)
 
     # Stiffeners
@@ -738,5 +733,5 @@ def generate_report(
     doc.append(landscape)
 
     doc.generate_tex(file_name)
-    doc.generate_pdf(file_name, clean_tex=False)
+    # doc.generate_pdf(file_name, clean_tex=False)
     return doc

@@ -4,22 +4,25 @@ Created on Thu Aug  6 11:49:36 2020
 
 @author: ruy
 """
-
-from abc import ABC, abstractproperty
+from abc import ABC, abstractmethod, abstractproperty
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, astuple
 from enum import Enum
 from functools import cache
 from re import T
-from typing import Optional, Protocol, Tuple
+from typing import Any, Optional, Protocol, Tuple, TYPE_CHECKING
 
 import numpy as np
+import pandas as pd
+
 from dataclass_tools.tools import (
     DESERIALIZER_OPTIONS,
     DeSerializerOptions,
     PrintMetadata,
     serialize_dataclass,
 )
+
+from gl_hsc_scantling.safety_factors import CORE_SHEAR_SF
 
 from .common_field_options import (
     ANTI_SYMMETRIC_OPTIONS,
@@ -50,7 +53,32 @@ from .common_field_options import (
     SYMMETRIC_OPTIONS,
     THICKNESS_OPTIONS,
 )
+from .utils import Criteria
 
+if TYPE_CHECKING:
+    from gl_hsc_scantling.panels import Panel
+
+
+DIRECTION_LABELS = ["x", "y", "xy"]
+Z_LABEL = "z"
+PLY_LABEL = "ply"
+PLY_MATERIAL_OPTIONS = DeSerializerOptions(
+    subs_by_attr="name",
+    subs_collection_name="laminas",
+    metadata=PrintMetadata(long_name="Material"),
+)
+ORIENTATION_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(long_name="Orientation", units="degree")
+)
+CLOTH_TYPE_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(long_name="Cloth type", abreviation="cloth")
+)
+PLY_STACK_OPTIONS = DeSerializerOptions(flatten=True)
+CORE_OPTIONS = DeSerializerOptions(
+    subs_by_attr="name",
+    subs_collection_name="cores",
+    metadata=PrintMetadata(long_name="Core", abreviation="core"),
+)
 
 
 def _matrix_inv(matrix) -> np.ndarray:
@@ -131,11 +159,6 @@ class ClothType(str, Enum):
     CSM = "CSM"
 
 
-cloth_type_options = DeSerializerOptions(
-    metadata=PrintMetadata(long_name="Cloth type", abreviation="cloth")
-)
-
-
 @dataclass
 class LaminaParts:
     """Single lamina made of woven cloth or csm (chopped stranded mat) - prop caculated
@@ -153,7 +176,7 @@ class LaminaParts:
     max_strain_x: float = field(metadata={DESERIALIZER_OPTIONS: MAX_STRAIN_X_OPTIONS})
     max_strain_xy: float = field(metadata={DESERIALIZER_OPTIONS: MAX_STRAIN_XY_OPTIONS})
     cloth_type: ClothType = field(
-        metadata={DESERIALIZER_OPTIONS: cloth_type_options}, default=ClothType.WOVEN
+        metadata={DESERIALIZER_OPTIONS: CLOTH_TYPE_OPTIONS}, default=ClothType.WOVEN
     )
 
     @property
@@ -266,9 +289,10 @@ class LaminaPartsCSM(LaminaParts):
         return self.modulus_x / (2 * (1 + self.poisson_xy))
 
 
+# Gotta be here because uses previous definitios
 LAMINA_DATA_TYPES: list[LaminaData] = [LaminaMonolith, LaminaPartsCSM, LaminaParts]
 LAMINA_TYPE_TABLE = {lamina.__name__: lamina for lamina in LAMINA_DATA_TYPES}
-laminina_type_options = DeSerializerOptions(
+LAMININA_TYPE_OPTIONS = DeSerializerOptions(
     flatten=True,
     add_type=True,
     type_label="lamina_data_type",
@@ -281,7 +305,7 @@ laminina_type_options = DeSerializerOptions(
 class Lamina:
     """Lamina stiffness and physical properties calculation logic."""
 
-    data: LaminaData = field(metadata={DESERIALIZER_OPTIONS: laminina_type_options})
+    data: LaminaData = field(metadata={DESERIALIZER_OPTIONS: LAMININA_TYPE_OPTIONS})
 
     @property
     def name(self):
@@ -341,6 +365,11 @@ class Lamina:
         return self.f_area_density / self.f_mass_cont
 
 
+class CoreType(str, Enum):
+    SOLID = "SOLID"
+    HONEYCOMB = "HONEYCOMB"
+
+
 @dataclass
 class CoreMat:
     """Core material, with strength and modulus inputs in kPa.
@@ -363,8 +392,8 @@ class CoreMat:
     resin_absorption: float = field(
         metadata={DESERIALIZER_OPTIONS: RESIN_ABSORPTION_OPTIONS}, default=0
     )
-    core_type: str = field(
-        metadata={DESERIALIZER_OPTIONS: CORE_TYPE_OPTIONS}, default="solid"
+    core_type: CoreType = field(
+        metadata={DESERIALIZER_OPTIONS: CORE_TYPE_OPTIONS}, default=CoreType.SOLID
     )
 
 
@@ -372,30 +401,50 @@ class CoreMat:
 class Core:
     """Core definied by core material and thickness (m)"""
 
-    core_material: CoreMat = field(
-        metadata={DESERIALIZER_OPTIONS: CORE_MATERIAL_OPTIONS}
-    )
-    core_thickness: float = field(
-        metadata={DESERIALIZER_OPTIONS: CORE_THICKNESS_OPTIONS}
-    )
-
-
-ply_material_options = DeSerializerOptions(
-    subs_by_attr="name",
-    subs_collection_name="laminas",
-    metadata=PrintMetadata(long_name="Material"),
-)
-orientation_options = DeSerializerOptions(
-    metadata=PrintMetadata(long_name="Orientation", units="degree")
-)
+    name: str = field(metadata={DESERIALIZER_OPTIONS: NAME_OPTIONS})
+    material: CoreMat = field(metadata={DESERIALIZER_OPTIONS: CORE_MATERIAL_OPTIONS})
+    thickness: float = field(metadata={DESERIALIZER_OPTIONS: CORE_THICKNESS_OPTIONS})
 
 
 @dataclass
 class PlyState:
-    strain_global: np.ndarray
-    stress_global: np.ndarray
-    strain_local: np.ndarray
-    stress_local: np.ndarray
+    stress_global: pd.DataFrame
+    strain_local: pd.DataFrame
+    strain_local_ratio: pd.DataFrame
+    stress_local: pd.DataFrame
+
+
+def _process_ply_state(
+    stress_global: list,
+    strain_local: list,
+    strain_local_ratio: list,
+    stress_local: list,
+):
+    states = [stress_global, strain_local, strain_local_ratio, stress_local]
+    direction_labels = DIRECTION_LABELS
+    state = PlyState(
+        *(
+            pd.DataFrame(
+                {
+                    direction: [value]
+                    for direction, value in zip(direction_labels, state)
+                }
+            )
+            for state in states
+        )
+    )
+    return state
+
+
+@dataclass
+class LaminateState:
+    load: list[float]
+    strain: list[float]
+    strain_global: pd.DataFrame = pd.DataFrame()
+    stress_global: pd.DataFrame = pd.DataFrame()
+    strain_local: pd.DataFrame = pd.DataFrame()
+    strain_local_ratio: pd.DataFrame = pd.DataFrame()
+    stress_local: pd.DataFrame = pd.DataFrame()
 
 
 @dataclass
@@ -404,8 +453,8 @@ class Ply:
     orientation - degrees.
     """
 
-    material: Lamina = field(metadata={DESERIALIZER_OPTIONS: ply_material_options})
-    orientation: float = field(metadata={DESERIALIZER_OPTIONS: orientation_options})
+    material: Lamina = field(metadata={DESERIALIZER_OPTIONS: PLY_MATERIAL_OPTIONS})
+    orientation: float = field(metadata={DESERIALIZER_OPTIONS: ORIENTATION_OPTIONS})
 
     @property
     def thickness(self):
@@ -493,11 +542,21 @@ class Ply:
         strain = np.array(strain)
         stress = self.stress(strain)
         strain_local = self.strain_local(strain)
+        limit_values = [self.material.max_strain_x] * 2 + [self.material.max_strain_xy]
+        safety_factor = 3
+        strain_local_ratio = [
+            Criteria(
+                calculated_value=np.abs(strain_),
+                theoretical_limit_value=limit,
+                safety_factor=safety_factor,
+            ).ratio
+            for strain_, limit in zip(strain_local, limit_values)
+        ]
         stress_local = self.material.Q_local @ strain_local
-        return PlyState(
-            strain_global=strain,
+        return _process_ply_state(
             stress_global=stress,
             strain_local=strain_local,
+            strain_local_ratio=strain_local_ratio,
             stress_local=stress_local,
         )
 
@@ -524,13 +583,11 @@ class PlyPositioned:
         return self.ply.Q_global
 
 
-class Laminate(Protocol):
-    plies_unpositioned_: list[Ply]
-
-
 @dataclass
-class ABCLaminate(ABC):
-    """ """
+class Laminate(ABC):
+    """General laminate behaviour, commom to both single skin and sandwich laminates."""
+
+    name: str
 
     # Old relic should remove as soon as there is something else working
     @property
@@ -551,7 +608,13 @@ class ABCLaminate(ABC):
         """Must place plies in z correct position. Sandwich laminates plies list
         does not include core. It just affects ply z coordinates.
         """
-        pass
+
+    @abstractmethod
+    def panel_rule_check(self, panel, pressure: float) -> pd.DataFrame:
+        """Returns a dictionary of rules checks against a given load,
+        where the value given is the ratio between the allowed value
+        and calculated value.
+        """
 
     @property
     def stiff_matrix(self):
@@ -688,41 +751,68 @@ class ABCLaminate(ABC):
         strain = strain_mid_plane
         return strain[:3] + z * strain[3:]
 
-    def response_plies(self, load) -> list[PlyState]:
-        responses = []
-        for ply in (self.plies):
-            z = ply.z_coord[np.argmax(np.max(np.abs(ply.z_coord)))]
-            strain_mp = self.strain_mid_plane(load)
-            strain = self.strain_2D(strain_mp, z)
-            responses.append(ply.ply.response(strain))
-        return responses
+    def _add_strain_response_to_df(self, z: float, strain_mp: list[float]):
+        strain_vector = self.strain_2D(strain_mp, z)
+        df = pd.DataFrame(
+            {
+                **{
+                    strain_label: [strain_component]
+                    for strain_label, strain_component in zip(
+                        DIRECTION_LABELS, strain_vector
+                    )
+                },
+                Z_LABEL: [z],
+            }
+        )
+        return df
 
-    # TODO re-write whole fucntion
-    def _max_resp_plies(self, load):
-        responses = self.response_plies(load)
-        return 
+    def response_plies(self, load) -> LaminateState:
+        strain_mp = self.strain_mid_plane(load)
 
-    def _response_simplified(self, moment):
-        z_edges = [self.plies[i].z_coord[i] - self.neutral_axis[0] for i in [0, -1]]
-        strains = [moment * z / self.bend_stiff_simp[0] for z in z_edges]
-        strain_limits = [self.plies[i].material.limit_strain[0] for i in [0, -1]]
-        return {
-            "simp_max_uni_ratio": np.min(
+        # Initializing the strain df, since it has one more row than
+        # the lenght of the following for loop that populates the
+        # rest of the results
+        z = self.plies[0].z_coord[0]
+        strain_df = pd.DataFrame(
+            self._add_strain_response_to_df(z=z, strain_mp=strain_mp)
+        )
+        state = LaminateState(load=load, strain=strain_mp, strain_global=strain_df)
+        for i, ply in enumerate(self.plies):
+            z = ply.z_coord[1]
+            state.strain_global = pd.concat(
                 [
-                    np.abs(strain_limit / strain)
-                    for strain, strain_limit in zip(strains, strain_limits)
+                    state.strain_global,
+                    self._add_strain_response_to_df(z=z, strain_mp=strain_mp),
                 ]
             )
-        }
+            for z in ply.z_coord:
+                strain = self.strain_2D(strain_mid_plane=strain_mp, z=z)
+                response = ply.ply.response(strain)
+                d: dict[str, pd.DataFrame] = asdict(response)
+                for key, value in d.items():
+                    laminate_state_df: pd.DataFrame = getattr(state, key)
+                    value[Z_LABEL] = z
+                    value[PLY_LABEL] = i
+                    laminate_state_df = pd.concat([laminate_state_df, value])
+                    state.__setattr__(key, laminate_state_df)
+        return state
 
-    def response_resume(self, load, CLT=True, simp=True):
-        resume = {}
-        if CLT:
-            resume.update(self._max_resp_plies(load))
-        if simp:
-            moment = load[3]
-            resume.update(self._response_simplified(moment))
-        return resume
+    def max_strain_ratio(self, load: list[float]) -> pd.DataFrame:
+        response = self.response_plies(load=load)
+        linear_directions = ["x", "y"]
+        linear_strain = np.min(
+            [
+                np.min([response.strain_local_ratio[direction]])
+                for direction in linear_directions
+            ]
+        )
+        shear_strain = np.min(response.strain_local_ratio["xy"])
+        return pd.DataFrame(
+            {
+                "linear_strain_ratio": [np.abs(linear_strain)],
+                "shear_strain_ratio": [np.abs(shear_strain)],
+            }
+        )
 
     def extract_ABD(self, matrix):
         """Assumes a 6x6 ABD [[A, B][B, D]] sitffness or compliance matrix
@@ -739,37 +829,6 @@ class ABCLaminate(ABC):
                 [np.hstack([A_matrix, B_matrix]), np.hstack([B_matrix, D_matrix])]
             )
         )
-
-    def convert_matrix(self, matrices, factors):
-        return [matrix * factor for matrix, factor in zip(matrices, factors)]
-
-    def print_out_matrix(self, units_system):
-        m_types = ["stiff", "compl"]
-        matrices = [
-            self.extract_ABD(self.stiff_matrix),
-            self.extract_ABD(self.compl_matrix),
-        ]
-        factors = [
-            self.units_table[units_system][1],
-            (1 / factor for factor in self.units_table[units_system][1]),
-        ]
-        matrices = [
-            self.convert_matrix(matrix, factor)
-            for matrix, factor in zip(matrices, factors)
-        ]
-        units = self.units_table[units_system][0]
-        return {
-            m_type: {
-                "A": (matrix[0], unit[0]),
-                "B": (matrix[1], unit[1]),
-                "D": (matrix[2], unit[2]),
-            }
-            for m_type, matrix, unit in zip(m_types, matrices, units)
-        }
-
-    def print_out_matrices(self, *args):
-        args = ("default", *args)
-        return {arg: self.print_out_matrix(arg) for arg in args}
 
 
 @dataclass
@@ -820,14 +879,11 @@ class PlyStack:
         return list_of_plies
 
 
-ply_stack_options = DeSerializerOptions(flatten=True)
-
-
 @dataclass
-class SingleSkinLaminate(ABCLaminate):
+class SingleSkinLaminate(Laminate):
 
     name: str
-    ply_stack: PlyStack = field(metadata={DESERIALIZER_OPTIONS: ply_stack_options})
+    ply_stack: PlyStack = field(metadata={DESERIALIZER_OPTIONS: PLY_STACK_OPTIONS})
 
     @property
     def thick_array(self) -> float:
@@ -853,14 +909,13 @@ class SingleSkinLaminate(ABCLaminate):
             for ply, z_coord in zip(self.ply_stack.stack, self.z_coords)
         ]
 
-
-CORE_OPTIONS = DeSerializerOptions(
-    flatten=True,
-)
+    def panel_rule_check(self, panel, pressure: float) -> pd.DataFrame:
+        load = panel.load_array(pressure=pressure)
+        return self.max_strain_ratio(load=load)
 
 
 @dataclass
-class SandwichLaminate(ABCLaminate):
+class SandwichLaminate(Laminate):
     """Laminate sandwich multiply material."""
 
     name: str
@@ -941,9 +996,7 @@ class SandwichLaminate(ABCLaminate):
         outter_plies = [
             PlyPositioned(
                 ply,
-                z_coord
-                - self.core.core_thickness / 2
-                - self.outter_laminate.thickness / 2,
+                z_coord - self.core.thickness / 2 - self.outter_laminate.thickness / 2,
             )
             for ply, z_coord in zip(
                 self.inner_laminate_ply_stack.stack, self.outter_laminate.z_coords
@@ -952,9 +1005,7 @@ class SandwichLaminate(ABCLaminate):
         inner_plies = [
             PlyPositioned(
                 ply,
-                z_coord
-                + self.core.core_thickness / 2
-                + self.inner_laminate.thickness / 2,
+                z_coord + self.core.thickness / 2 + self.inner_laminate.thickness / 2,
             )
             for ply, z_coord in zip(
                 self.inner_laminate.ply_stack.stack, self.inner_laminate.z_coords
@@ -967,5 +1018,51 @@ class SandwichLaminate(ABCLaminate):
         return (
             self.inner_laminate.thickness
             + self.outter_laminate.thickness
-            + self.core.core_thickness
+            + self.core.thickness
         )
+
+    def core_shear_stress(self, shear_force: float):
+        """C3.8.3.4 Determination of laminate strains and stresses
+        .2 Determination of core shear stresses in sandwich laminates.
+        """
+        return shear_force / (
+            self.core.thickness
+            + self.outter_laminate.thickness / 2
+            + self.inner_laminate.thickness / 2
+        )
+
+    def core_shear_stress_ratio(self, shear_force: float):
+        ratio = Criteria(
+            calculated_value=self.core_shear_stress(shear_force=shear_force),
+            theoretical_limit_value=self.core.material.strength_shear,
+            safety_factor=CORE_SHEAR_SF,
+        ).ratio
+        return pd.DataFrame({"core_shear_stress_ratio": [ratio]})
+
+    def critical_skin_wrinkling_solid_core(self, panel):
+        """C3.8.6.1 Skin wrinkling of sandwich skins"""
+        K1 = 0.5
+        index = panel.direction_table[panel.span_direction]
+        flexural_modulus = self.outter_laminate.bend_stiff[index] / (
+            self.outter_laminate.thickness ^ 3 / 12
+        )
+        return (
+            K1
+            * (
+                flexural_modulus
+                * self.core.material.modulus_comp
+                * self.core.material.modulus_shear
+            )
+            ^ 0.5 / self.outter_laminate.modulus[index]
+        )
+
+    @property
+    def _critical_skin_wrinkling_funtcion(self):
+        table = {}
+
+    def panel_rule_check(self, panel: "Panel", pressure: float) -> pd.DataFrame:
+        strain_check = self.max_strain_ratio(load=panel.load_array(pressure=pressure))
+        core_shear_check = self.core_shear_stress_ratio(
+            shear_force=panel.max_shear_force(pressure=pressure)
+        )
+        return pd.concat([], axis=1)

@@ -1,6 +1,7 @@
-from dataclasses import asdict, dataclass, field, fields
-from operator import add
-from typing import Optional, Union
+from dataclasses import dataclass, field, fields
+from typing import Union
+
+import pandas as pd
 
 from dataclass_tools.tools import (
     DESERIALIZER_OPTIONS,
@@ -45,7 +46,9 @@ class Session:
     )
     core_materials: dict[str, CoreMat] = field(default_factory=dict)
     cores: dict[str, Core] = field(default_factory=dict)
-    stiffener_sections: dict[str, StiffenerSectionWithFoot] = field(default_factory=dict)
+    stiffener_sections: dict[str, StiffenerSectionWithFoot] = field(
+        default_factory=dict
+    )
     panels: dict[str, StructuralElement] = field(default_factory=dict)
     stiffener_elements: dict[str, StructuralElement] = field(default_factory=dict)
 
@@ -221,3 +224,9 @@ class Session:
             typ=StructuralElement,
             dict_of_collections=self.session_dict,
         )
+
+    def panels_rule_check(self):
+        df = pd.DataFrame()
+        for panel in self.panels.values():
+            df = pd.concat([df, panel.rule_check])
+        return df

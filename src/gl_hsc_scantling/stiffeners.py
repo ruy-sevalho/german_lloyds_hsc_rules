@@ -31,7 +31,7 @@ from .common_field_options import (
     STIFF_ATT_ANGLE_OPTIONS,
     STIFF_ATT_PLATE_OPTIONS,
 )
-from .composites import ABCLaminate, SandwichLaminate, SingleSkinLaminate
+from .composites import Laminate, SandwichLaminate, SingleSkinLaminate
 from .structural_model import BoundaryCondition, StructuralModel
 
 
@@ -185,7 +185,7 @@ class HomogeneousSectionElement(SectionElement):
 class RectSectionElement(HomogeneousSectionElement):
     """Rectangular element, with local centroid at the mid witdth at height 0."""
 
-    laminate: ABCLaminate
+    laminate: Laminate
     dimension: float
 
     def bend_stiff(self, angle=0) -> BendStiff:
@@ -377,11 +377,11 @@ class StiffenerSection(SectionElement):
 class LBar(SectionElementListWithFoot):
     """L bar profile - composed of a web and a flange. Dimensions in m."""
 
-    laminate_web: ABCLaminate = field(
+    laminate_web: Laminate = field(
         metadata={DESERIALIZER_OPTIONS: LAMINATE_WEB_OPTIONS}
     )
     dimension_web: float = field(metadata={DESERIALIZER_OPTIONS: DIMENSION_WEB_OPTIONS})
-    laminate_flange: ABCLaminate = field(
+    laminate_flange: Laminate = field(
         metadata={DESERIALIZER_OPTIONS: LAMINATE_FLANGE_OPTIONS}
     )
     dimension_flange: float = field(
@@ -455,7 +455,7 @@ class AttPlateSandwich(SectionElementList):
 class AttPlateSingleSkin(SectionElementList):
     """Single Skin attached plate section."""
 
-    laminate: ABCLaminate
+    laminate: Laminate
     dimension: float
 
     @property
@@ -494,7 +494,7 @@ STIFF_SECTION_OPTIONS = DeSerializerOptions(
 
 
 @dataclass
-class Stiffener(StructuralModel):
+class Stiffener:
     """Stiffener beam model, in accordance to C3.8.2.6 and C3.8.4,
     including a stiffener profile section and attached plates. Dimensions im m.
     spacing_1 and spacing_2 refer to distance from stiffener to center of the
@@ -510,12 +510,8 @@ class Stiffener(StructuralModel):
     stiff_att_plate: int = field(
         metadata={DESERIALIZER_OPTIONS: STIFF_ATT_PLATE_OPTIONS}
     )
-    att_plate_1: ABCLaminate = field(
-        metadata={DESERIALIZER_OPTIONS: ATT_PLATE_1_OPTIONS}
-    )
-    att_plate_2: ABCLaminate = field(
-        metadata={DESERIALIZER_OPTIONS: ATT_PLATE_2_OPTIONS}
-    )
+    att_plate_1: Laminate = field(metadata={DESERIALIZER_OPTIONS: ATT_PLATE_1_OPTIONS})
+    att_plate_2: Laminate = field(metadata={DESERIALIZER_OPTIONS: ATT_PLATE_2_OPTIONS})
     stiff_att_angle: float = field(
         default=0, metadata={DESERIALIZER_OPTIONS: STIFF_ATT_ANGLE_OPTIONS}
     )

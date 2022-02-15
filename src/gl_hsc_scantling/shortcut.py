@@ -1,5 +1,5 @@
 from .composites import (
-    ABCLaminate,
+    Laminate,
     Core,
     CoreMat,
     Fiber,
