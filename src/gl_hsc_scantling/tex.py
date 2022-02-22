@@ -4,12 +4,15 @@ Created on Mon Jun 21 12:53:01 2021
 
 @author: ruy
 """
-from __future__ import annotations
 
+
+from cProfile import label
 from dataclasses import asdict, dataclass, fields
+from functools import partial
 from itertools import chain
 from math import ceil, floor
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Literal, Optional, Union
+import pandas as pd
 
 import quantities as pq
 from dataclass_tools.tools import PrintWrapper, serialize_dataclass
@@ -27,15 +30,16 @@ from pylatex import (
     Package,
     NewPage,
 )
-from pylatex.base_classes import Environment, CommandBase
+from pylatex.base_classes import Environment, CommandBase, Command
 from pylatex.labelref import Label
 from pylatex.math import Math
-from pylatex.utils import bold
+from pylatex.utils import dumps_list
 from gl_hsc_scantling.elements import LOCATION_TYPES
 from gl_hsc_scantling.locations_abc import Location
 from gl_hsc_scantling.report_config import PrintOptions, ReportConfig
 
 from gl_hsc_scantling.stiffeners import StiffenerSectionWithFoot
+from gl_hsc_scantling.utils import criteria
 
 from .abrevitation_registry import abv_registry
 from .composites import (
@@ -103,15 +107,19 @@ class ListOfTables(CommandBase):
     pass
 
 
+class Tblr(Tabular):
+    """Blank copy of Tabular class from pylatex, but with tblr tables, from tabularray package."""
+
+
 def _print_quantity(
     quantity: pq.Quantity,
     disp_units=False,
-    convert_units=None,
+    print_units=None,
     round_precision=2,
 ):
     options = {"round-precision": round_precision}
-    if convert_units is not None:
-        quantity = quantity.rescale(convert_units)
+    if print_units is not None:
+        quantity = quantity.rescale(print_units)
     if not disp_units and not quantity.units == pq.percent:
         quantity = quantity.magnitude
     return Quantity(quantity, options=options)
@@ -120,14 +128,14 @@ def _print_quantity(
 def _print_type(
     value,
     disp_units=False,
-    convert_units=None,
+    print_units=None,
     round_precision=2,
 ):
     if isinstance(value, pq.Quantity):
         value = _print_quantity(
             value,
             disp_units=disp_units,
-            convert_units=convert_units,
+            print_units=print_units,
             round_precision=round_precision,
         )
     return value
@@ -143,9 +151,9 @@ def _get_unit(
         return ""
     if convert_units is not None:
         value = value.rescale(convert_units)
-    unit_string = Quantity(value.units).dumps()
-    unit_string = unit_string[:4] + unit_string[7:]
-    return NoEscape(" " + "(" + unit_string + ")")
+    units_string = Quantity(value.units).dumps()
+    units_string = units_string[:4] + units_string[7:]
+    return NoEscape(" " + "(" + units_string + ")")
 
 
 def _single_entity_dict_to_table_list(
@@ -162,7 +170,7 @@ def _single_entity_dict_to_table_list(
                 # why I would ever do this to myself is beyond me, but hey here we are
                 **dict(
                     filter(
-                        lambda item: item[0] in ["convert_units", "round_precision"],
+                        lambda item: item[0] in ["print_units", "round_precision"],
                         asdict(options_dict.get(key, PrintOptions())).items(),
                     )
                 ),
@@ -188,7 +196,7 @@ def _list_of_entities_dicts_to_table_list(
                 # Turned out once wasn't enough
                 **dict(
                     filter(
-                        lambda item: item[0] in ["convert_units", "round_precision"],
+                        lambda item: item[0] in ["print_units", "round_precision"],
                         asdict(options_dict.get(key, PrintOptions())).items(),
                     )
                 ),
@@ -208,9 +216,7 @@ def _list_of_entities_dicts_to_table_list(
                 [
                     _get_unit(
                         printable.value,
-                        convert_units=options_dict.get(
-                            key, PrintOptions()
-                        ).convert_units,
+                        convert_units=options_dict.get(key, PrintOptions()).print_units,
                     )
                     for key, printable in entity.items()
                 ],
@@ -221,9 +227,7 @@ def _list_of_entities_dicts_to_table_list(
                     NoEscape(printable.names.abreviation)
                     + _get_unit(
                         printable.value,
-                        convert_units=options_dict.get(
-                            key, PrintOptions()
-                        ).convert_units,
+                        convert_units=options_dict.get(key, PrintOptions()).print_units,
                     )
                     for key, printable in entity.items()
                 ]
@@ -308,6 +312,7 @@ def _add_table(
 
 
 # Refactoring in process - eventually must drop either _add_table_ or _add_table for sanity's sake.
+# Maybe should drop both
 def _add_table_(
     data,
     caption=None,
@@ -406,6 +411,105 @@ def _sandwich_laminate_tables(
     return tables
 
 
+# def _build_header(header_names: list[str], config_dict: dict[str, PrintOptions]):
+#     header = []
+#     for name in header_names:
+#         config = config_dict.get(name, PrintOptions())
+#         if config.print_units:
+
+
+#     return
+
+
+def _process_column(
+    column: list[pq.Quantity],
+    convert_units: Optional[str],
+    round_precision: int = 2,
+    unit_display: Literal["header", "cell"] = "header",
+):
+    def _process_quantity_entry(
+        entry: pq.Quantity,
+        convert_units: Optional[str] = None,
+        round_precision: int = 2,
+        unit_display: Literal["header", "cell"] = "header",
+    ):
+        if entry.units == criteria and entry > 10:
+            return ">10"
+        if convert_units is not None:
+            entry = entry.rescale(convert_units)
+        if unit_display == "header" and not entry.units == pq.percent:
+            entry = entry.magnitude
+        return Quantity(entry, options={"round-precision": round_precision})
+
+    func = partial(
+        _process_quantity_entry,
+        convert_units=convert_units,
+        round_precision=round_precision,
+        unit_display=unit_display,
+    )
+    return [func(entry=entry) for entry in column]
+
+
+def _get_header(
+    label: Union[str, NoEscape],
+    units: Optional[str] = None,
+    unit_display: Literal["header", "cell"] = "header",
+) -> Union[str, NoEscape]:
+    if unit_display == "header" and not (units == pq.percent or units == criteria):
+        units_string = Quantity(pq.Quantity(1, units)).dumps()
+        units_string = units_string[:4] + units_string[5:]
+        header = ["{", label, r"\\ ", units_string, "}"]
+        header = dumps_list(header, escape=False, token="")
+    else:
+        header = label
+    return header
+
+
+def _dataframe_table(
+    df: pd.DataFrame,
+    config_dict: dict[
+        str, PrintOptions
+    ] = ReportConfig().to_dict(),  # learn to use bloody config
+    unit_display: Literal["header", "cell"] = "header",
+) -> Table:
+    """Atention function may mutate dataframe, converting column units. Caller beware"""
+    width = df.shape[1]
+    # column specifications of tabularray package for latex
+    first_row = "Q[l, m]"
+    remaing_rows = " Q[c, m]"
+    table_spec = f"{first_row}{(width-1)*(remaing_rows)}"
+    tblr = Tblr(table_spec=table_spec, width=width)
+    header_list = []
+    table = [[] for _ in range(df.shape[0])]
+    for name in df.columns:
+        print_config = config_dict.get(name, PrintOptions())
+        # in latex _ is a special character
+        label = print_config.label or name.replace("_", " ")
+        # Assuming dataframe has at least one row and all objects
+        # in a given column are of the same type
+
+        if isinstance(df[name][0], pq.Quantity):
+            column = _process_column(
+                column=df[name],
+                convert_units=print_config.print_units,
+                round_precision=print_config.round_precision,
+                unit_display=unit_display,
+            )
+            units = print_config.print_units or df[name][0].units
+            header = _get_header(label=label, units=units, unit_display=unit_display)
+        else:
+            header = label
+            column = df[name]
+        for row, table_row in zip(column, table):
+            table_row.append(row)
+        header_list.append(header)
+    tblr.add_row(header_list)
+    tblr.append(Command("midrule"))
+    for row in table:
+        tblr.add_row(row)
+    return tblr
+
+
 def _stiffener_tables(
     stiffener: StiffenerSectionWithFoot,
     options_dict: dict[str, PrintOptions] = dict(),
@@ -432,8 +536,21 @@ def _stiffener_tables(
     )
 
 
+def _add_df_table(
+    df: pd.DataFrame,
+    caption: str,
+    config_dict: dict[str, PrintOptions] = ReportConfig().to_dict(),
+):
+    table = Table(position="H")
+    table.add_caption(caption)
+    table.append(
+        _dataframe_table(df=df, config_dict=config_dict, unit_display="header")
+    )
+    return table
+
+
 def generate_report(
-    session: Session, file_name="report", config: ReportConfig = ReportConfig()
+    session: "Session", file_name="report", config: ReportConfig = ReportConfig()
 ):
     # Document preamble
     geometry_options = NoEscape(r"text={7in,10in}, a4paper, centering")
@@ -448,6 +565,8 @@ def generate_report(
     doc.preamble.append(Package("pdflscape"))
     doc.preamble.append(Package("hyperref"))
     doc.preamble.append(Package("bookmark"))
+    doc.preamble.append(Package("tabularray"))
+    doc.preamble.append(Command("UseTblrLibrary", arguments="booktabs"))
     doc.preamble.append(NoEscape(r"\DeclareSIUnit\kt{kt}"))
     doc.preamble.append(NoEscape(r"\sisetup{round-mode=places}"))
     # doc.preamble.append(NoEscape(r"\sisetup{scientific-notation=true}"))
@@ -466,30 +585,30 @@ def generate_report(
     doc.append(NewPage())
 
     # Section Vessel
-    section_vessel = Section(VESSEL_SECTION_TITLE)
+    # section_vessel = Section(VESSEL_SECTION_TITLE)
 
     # Vessel data
-    vessels = session.vessels
-    for vessel in vessels.values():
-        options_dict = display_options
-        vessel_input = _single_entity_dict_to_table_list(
-            serialize_dataclass(obj=vessel, printing_format=True, include_names=True),
-            options_dict=options_dict,
-        )
-        vessel_loads = vessel.loads_asdict
-        vessel_loads = _single_entity_dict_to_table_list(vessel_loads)
-        vessel_tables = [vessel_input, vessel_loads]
-        captions = [f"{vessel.name} parameters", f"{vessel.name} global loads"]
-        for array, caption, split in zip(vessel_tables, captions, [4, 2]):
-            table = _add_table(
-                table_array=array,
-                cols="l r",
-                caption=caption,
-                split=split,
-                label="".join(caption.split()),
-            )
-            section_vessel.append(table)
-    doc.append(section_vessel)
+    # vessels = session.vessels
+    # for vessel in vessels.values():
+    #     options_dict = display_options
+    #     vessel_input = _single_entity_dict_to_table_list(
+    #         serialize_dataclass(obj=vessel, printing_format=True, include_names=True),
+    #         options_dict=options_dict,
+    #     )
+    #     vessel_loads = vessel.loads_asdict
+    #     vessel_loads = _single_entity_dict_to_table_list(vessel_loads)
+    #     vessel_tables = [vessel_input, vessel_loads]
+    #     captions = [f"{vessel.name} parameters", f"{vessel.name} global loads"]
+    #     for array, caption, split in zip(vessel_tables, captions, [4, 2]):
+    #         table = _add_table(
+    #             table_array=array,
+    #             cols="l r",
+    #             caption=caption,
+    #             split=split,
+    #             label="".join(caption.split()),
+    #         )
+    #         section_vessel.append(table)
+    # doc.append(section_vessel)
 
     # Section Materials
     section_materials = Section(MATERIALS_SECTION_TITLE)
@@ -675,7 +794,7 @@ def generate_report(
         ]
         if panels:
             panels_input = _list_of_entities_dicts_to_table_list(
-                panels, header=True, split_units=True, options_dict=options_dict
+                panels, header=True, split_units=True, options_dict=display_options
             )
             panels_tabular = Center()
             panels_tabular.append(_add_tabular(panels_input, horizontal_lines=[1]))
@@ -684,11 +803,8 @@ def generate_report(
                     panels_tabular, caption=f"{location.name.capitalize()} panels"
                 )
             )
-
     section_panels.append(sub_section_panels_inputs)
     landscape.append(section_panels)
-    sub_section = Subsection(RULE_CHECK_RESULT_CAPTION)
-
     doc.append(landscape)
 
     # Stiffeners
@@ -715,7 +831,7 @@ def generate_report(
         ]
         if stiffeners:
             stiffeners_input = _list_of_entities_dicts_to_table_list(
-                stiffeners, header=True, split_units=True, options_dict=options_dict
+                stiffeners, header=True, split_units=True, options_dict=display_options
             )
             stiffeners_tabular = Center()
             stiffeners_tabular.append(
@@ -732,6 +848,12 @@ def generate_report(
     landscape.append(section_stiffeners_elements)
     doc.append(landscape)
 
+    section_results = Section(f"{RULE_CHECK_RESULT_CAPTION}")
+    panels_results_df = session.panels_rule_check()
+    section_results.append(
+        _add_df_table(panels_results_df, caption=PANELS_SECTION_TITLE)
+    )
+    doc.append(section_results)
     doc.generate_tex(file_name)
     # doc.generate_pdf(file_name, clean_tex=False)
     return doc

@@ -1,13 +1,14 @@
 from dataclasses import dataclass, fields
 from typing import Optional
 from dataclass_tools.tools import DeSerializerOptions, DESERIALIZER_OPTIONS
+from pylatex import NoEscape
 
 
 @dataclass
 class PrintOptions:
     """[summary]"""
 
-    convert_units: Optional[str] = None
+    print_units: Optional[str] = None
     round_precision: int = 2
     label: Optional[str] = None
     description: Optional[str] = None
@@ -15,13 +16,14 @@ class PrintOptions:
 
 @dataclass
 class ReportConfig:
+    name: PrintOptions = PrintOptions()
     modulus_x: PrintOptions = PrintOptions(
-        convert_units="GPa",
+        print_units="GPa",
         label=r"E\textsubscript{x}",
         description="Modulus of elasticity - x direction",
     )
-    modulus_y: PrintOptions = PrintOptions(convert_units="GPa")
-    modulus_xy: PrintOptions = PrintOptions(convert_units="GPa")
+    modulus_y: PrintOptions = PrintOptions(print_units="GPa")
+    modulus_xy: PrintOptions = PrintOptions(print_units="GPa")
     density: PrintOptions = PrintOptions(round_precision=0)
     max_strain_x: PrintOptions = PrintOptions()
     max_strain_xy: PrintOptions = PrintOptions()
@@ -40,22 +42,28 @@ class ReportConfig:
     core_type: PrintOptions = PrintOptions()
     dimension_web: PrintOptions = PrintOptions()
     dimension_flange: PrintOptions = PrintOptions()
+    linear_strain_ratio: PrintOptions = PrintOptions(
+        round_precision=2, label=NoEscape(r"$\epsilon$"), description="Linear strain"
+    )
+    shear_strain_ratio: PrintOptions = PrintOptions(
+        round_precision=2, label=NoEscape(r"$\gamma$"), description="Shear strain"
+    )
 
     def to_dict(self):
         return {field_.name: getattr(self, field_.name) for field_ in fields(self)}
 
 
-modulus_print_options = PrintOptions(convert_units="GPa")
+modulus_print_options = PrintOptions(print_units="GPa")
 density_print_options = PrintOptions(round_precision=0)
 max_strain_print_options = PrintOptions()
 f_mass_cont_print_options = PrintOptions(round_precision=0)
 f_area_density_print_options = PrintOptions(round_precision=3)
-thickness_print_options = PrintOptions(convert_units="mm")
+thickness_print_options = PrintOptions(print_units="mm")
 orientation_print_options = PrintOptions(round_precision=1)
 multiple_print_options = PrintOptions(round_precision=0)
 strength_shear_print_options = PrintOptions(round_precision=0)
-dimenion_web_print_options = PrintOptions(convert_units="mm")
-dimenion_flange_print_options = PrintOptions(convert_units="mm")
+dimenion_web_print_options = PrintOptions(print_units="mm")
+dimenion_flange_print_options = PrintOptions(print_units="mm")
 
 default_report_config = ReportConfig(
     modulus_x=modulus_print_options,

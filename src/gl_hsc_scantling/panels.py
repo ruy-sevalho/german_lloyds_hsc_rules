@@ -9,6 +9,7 @@ from enum import Enum
 
 import numpy as np
 import pandas as pd
+from quantities import Quantity
 from dataclass_tools.tools import DESERIALIZER_OPTIONS, DeSerializerOptions
 
 from gl_hsc_scantling.utils import Criteria
@@ -205,7 +206,7 @@ class Panel:
             "SingleSkinLaminate": 0.015 * self.span,
             "SandwichLaminate": 0.01 * self.span,
         }
-        return table(type(self.laminate).__name__)
+        return table[type(self.laminate).__name__]
 
     def load_array(self, pressure: float):
         table = {"x": 3, "y": 4}
@@ -227,10 +228,12 @@ class Panel:
         deflection_check = pd.DataFrame(
             {
                 "deflection": [
-                    Criteria(
-                        self.max_lateral_deflection(pressure=pressure),
-                        self.limit_deflection,
-                        1,
+                    Quantity(
+                        Criteria(
+                            self.max_lateral_deflection(pressure=pressure),
+                            self.limit_deflection,
+                            1,
+                        ).ratio
                     )
                 ]
             }

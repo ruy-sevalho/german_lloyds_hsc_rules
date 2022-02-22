@@ -122,6 +122,7 @@ class StructuralElement:
     @property
     def rule_check(self):
         p = self.design_pressure
+        na = self.name
         resume = pd.DataFrame(
             {
                 "name": [self.name],

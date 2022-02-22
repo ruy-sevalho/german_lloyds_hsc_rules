@@ -228,5 +228,6 @@ class Session:
     def panels_rule_check(self):
         df = pd.DataFrame()
         for panel in self.panels.values():
-            df = pd.concat([df, panel.rule_check])
+            df = pd.concat([df, panel.rule_check], ignore_index=True)
+        n = df["name"][0]
         return df

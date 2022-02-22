@@ -14,6 +14,7 @@ from typing import Any, Optional, Protocol, Tuple, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+from quantities import Quantity
 
 from dataclass_tools.tools import (
     DESERIALIZER_OPTIONS,
@@ -53,7 +54,7 @@ from .common_field_options import (
     SYMMETRIC_OPTIONS,
     THICKNESS_OPTIONS,
 )
-from .utils import Criteria
+from .utils import Criteria, criteria
 
 if TYPE_CHECKING:
     from gl_hsc_scantling.panels import Panel
@@ -802,15 +803,17 @@ class Laminate(ABC):
         linear_directions = ["x", "y"]
         linear_strain = np.min(
             [
-                np.min([response.strain_local_ratio[direction]])
+                np.min(response.strain_local_ratio[direction])
                 for direction in linear_directions
             ]
         )
+        linear_strain = Quantity(linear_strain, criteria)
         shear_strain = np.min(response.strain_local_ratio["xy"])
+        # shear_strain = Quantity(np.abs(shear_strain))
         return pd.DataFrame(
             {
-                "linear_strain_ratio": [np.abs(linear_strain)],
-                "shear_strain_ratio": [np.abs(shear_strain)],
+                "linear_strain_ratio": [linear_strain],
+                "shear_strain_ratio": [shear_strain],
             }
         )
 
@@ -909,7 +912,7 @@ class SingleSkinLaminate(Laminate):
             for ply, z_coord in zip(self.ply_stack.stack, self.z_coords)
         ]
 
-    def panel_rule_check(self, panel, pressure: float) -> pd.DataFrame:
+    def panel_rule_check(self, panel: "Panel", pressure: float) -> pd.DataFrame:
         load = panel.load_array(pressure=pressure)
         return self.max_strain_ratio(load=load)
 
@@ -1032,11 +1035,13 @@ class SandwichLaminate(Laminate):
         )
 
     def core_shear_stress_ratio(self, shear_force: float):
-        ratio = Criteria(
-            calculated_value=self.core_shear_stress(shear_force=shear_force),
-            theoretical_limit_value=self.core.material.strength_shear,
-            safety_factor=CORE_SHEAR_SF,
-        ).ratio
+        ratio = Quantity(
+            Criteria(
+                calculated_value=self.core_shear_stress(shear_force=shear_force),
+                theoretical_limit_value=self.core.material.strength_shear,
+                safety_factor=CORE_SHEAR_SF,
+            ).ratio
+        )
         return pd.DataFrame({"core_shear_stress_ratio": [ratio]})
 
     def critical_skin_wrinkling_solid_core(self, panel):
@@ -1065,4 +1070,4 @@ class SandwichLaminate(Laminate):
         core_shear_check = self.core_shear_stress_ratio(
             shear_force=panel.max_shear_force(pressure=pressure)
         )
-        return pd.concat([], axis=1)
+        return pd.concat([strain_check, core_shear_check], axis=1)
