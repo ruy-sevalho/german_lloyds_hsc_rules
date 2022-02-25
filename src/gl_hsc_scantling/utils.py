@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from functools import total_ordering
-from quantities import UnitQuantity, Quantity
+from quantities import UnitQuantity
+from quantities import Quantity as Quant
+from pylatex import Quantity, Command
+import numpy as np
 
 criteria = UnitQuantity("criteria")
 
@@ -29,7 +32,7 @@ class Criteria:
         # The cutoff is there so big numbers don't clutter the report
         # if ratio > 10:
         #     ratio = ">10"
-        return Quantity(ratio, criteria)
+        return ratio
 
     def __eq__(self, other: "Criteria"):
         if self.ratio == other.ratio:
@@ -40,3 +43,16 @@ class Criteria:
         if self.ratio < other.ratio:
             return True
         return False
+
+    def to_latex(self, round_precision: int = 2):
+        ratio = self.ratio
+        if ratio > 10:
+            return ">10"
+        print_ratio = Quantity(
+            Quant(ratio), options={"round-precision": round_precision}
+        )
+        if ratio < 1:
+            print_ratio = Command(
+                "textcolor", arguments="red", extra_arguments=print_ratio
+            )
+        return print_ratio

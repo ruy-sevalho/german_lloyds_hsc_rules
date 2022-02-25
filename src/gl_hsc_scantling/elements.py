@@ -121,13 +121,13 @@ class StructuralElement:
 
     @property
     def rule_check(self):
-        p = self.design_pressure
-        na = self.name
         resume = pd.DataFrame(
             {
                 "name": [self.name],
-                "desgin_pressure_type": [self.design_pressure_type],
-                "design_pressure": [Quantity(p, self.location.units)],
+                "design_pressure_type": [self.design_pressure_type],
+                "design_pressure": [
+                    Quantity(self.design_pressure, self.location.units)
+                ],
             }
         )
         results = self.model.rule_check(pressure=self.design_pressure)

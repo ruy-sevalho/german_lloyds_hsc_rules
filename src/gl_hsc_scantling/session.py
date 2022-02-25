@@ -41,11 +41,11 @@ class Session:
     fibers: dict[str, Fiber] = field(default_factory=dict)
     matrices: dict[str, Matrix] = field(default_factory=dict)
     laminas: dict[str, Lamina] = field(default_factory=dict)
+    core_materials: dict[str, CoreMat] = field(default_factory=dict)
+    cores: dict[str, Core] = field(default_factory=dict)
     laminates: dict[str, Laminate] = field(
         default_factory=dict, metadata={DESERIALIZER_OPTIONS: LAMINATE_OPTIONS}
     )
-    core_materials: dict[str, CoreMat] = field(default_factory=dict)
-    cores: dict[str, Core] = field(default_factory=dict)
     stiffener_sections: dict[str, StiffenerSectionWithFoot] = field(
         default_factory=dict
     )
@@ -229,5 +229,12 @@ class Session:
         df = pd.DataFrame()
         for panel in self.panels.values():
             df = pd.concat([df, panel.rule_check], ignore_index=True)
+        n = df["name"][0]
+        return df
+
+    def stiffeners_rule_check(self):
+        df = pd.DataFrame()
+        for stifferner in self.stiffener_elements.values():
+            df = pd.concat([df, stifferner.rule_check], ignore_index=True)
         n = df["name"][0]
         return df

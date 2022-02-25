@@ -228,12 +228,10 @@ class Panel:
         deflection_check = pd.DataFrame(
             {
                 "deflection": [
-                    Quantity(
-                        Criteria(
-                            self.max_lateral_deflection(pressure=pressure),
-                            self.limit_deflection,
-                            1,
-                        ).ratio
+                    Criteria(
+                        self.max_lateral_deflection(pressure=pressure),
+                        self.limit_deflection,
+                        1,
                     )
                 ]
             }

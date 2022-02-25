@@ -4,9 +4,6 @@ Created on Mon Jun 21 12:53:01 2021
 
 @author: ruy
 """
-
-
-from cProfile import label
 from dataclasses import asdict, dataclass, fields
 from functools import partial
 from itertools import chain
@@ -39,7 +36,7 @@ from gl_hsc_scantling.locations_abc import Location
 from gl_hsc_scantling.report_config import PrintOptions, ReportConfig
 
 from gl_hsc_scantling.stiffeners import StiffenerSectionWithFoot
-from gl_hsc_scantling.utils import criteria
+from gl_hsc_scantling.utils import Criteria, criteria
 
 from .abrevitation_registry import abv_registry
 from .composites import (
@@ -411,14 +408,19 @@ def _sandwich_laminate_tables(
     return tables
 
 
-# def _build_header(header_names: list[str], config_dict: dict[str, PrintOptions]):
-#     header = []
-#     for name in header_names:
-#         config = config_dict.get(name, PrintOptions())
-#         if config.print_units:
-
-
-#     return
+def _get_header(
+    label: Union[str, NoEscape],
+    units: Optional[str] = None,
+    unit_display: Literal["header", "cell"] = "header",
+) -> Union[str, NoEscape]:
+    if unit_display == "header" and not (units == pq.percent or units == criteria):
+        units_string = Quantity(pq.Quantity(1, units)).dumps()
+        units_string = units_string[:4] + units_string[5:]
+        header = ["{", label, r"\\ ", units_string, "}"]
+        header = dumps_list(header, escape=False, token="")
+    else:
+        header = label
+    return header
 
 
 def _process_column(
@@ -433,8 +435,8 @@ def _process_column(
         round_precision: int = 2,
         unit_display: Literal["header", "cell"] = "header",
     ):
-        if entry.units == criteria and entry > 10:
-            return ">10"
+        if pd.isna(entry):
+            return "-"
         if convert_units is not None:
             entry = entry.rescale(convert_units)
         if unit_display == "header" and not entry.units == pq.percent:
@@ -450,19 +452,108 @@ def _process_column(
     return [func(entry=entry) for entry in column]
 
 
-def _get_header(
-    label: Union[str, NoEscape],
-    units: Optional[str] = None,
+def _process_entry(
+    entry: pq.Quantity | Criteria | int | float | str,
+    convert_units: Optional[str],
+    round_precision: int = 2,
     unit_display: Literal["header", "cell"] = "header",
-) -> Union[str, NoEscape]:
-    if unit_display == "header" and not (units == pq.percent or units == criteria):
-        units_string = Quantity(pq.Quantity(1, units)).dumps()
-        units_string = units_string[:4] + units_string[5:]
-        header = ["{", label, r"\\ ", units_string, "}"]
-        header = dumps_list(header, escape=False, token="")
+):
+    def _process_quantity_entry(
+        entry: pq.Quantity,
+        convert_units: Optional[str] = None,
+        round_precision: int = 2,
+        unit_display: Literal["header", "cell"] = "header",
+    ):
+        if pd.isna(entry):
+            return "-"
+        if convert_units is not None:
+            entry = entry.rescale(convert_units)
+        if unit_display == "header" and not entry.units == pq.percent:
+            entry = entry.magnitude
+        return Quantity(entry, options={"round-precision": round_precision})
+
+    process_quantity = partial(
+        _process_quantity_entry,
+        convert_units=convert_units,
+        round_precision=round_precision,
+        unit_display=unit_display,
+    )
+    process_criteria = lambda x: x.to_latex(round_precision=round_precision)
+    process_nan = lambda x: "-"
+    process_others = lambda x: x
+    if isinstance(entry, pq.Quantity):
+        process_function = process_quantity
+    elif isinstance(entry, Criteria):
+        process_function = process_criteria
+    elif pd.isna(entry):
+        process_function = process_nan
     else:
-        header = label
-    return header
+        process_function = process_others
+    return process_function(entry)
+
+
+def _process_column_2(
+    column: pd.Series,
+    convert_units: Optional[str],
+    round_precision: int = 2,
+    unit_display: Literal["header", "cell"] = "header",
+):
+    return [
+        _process_entry(
+            row,
+            convert_units=convert_units,
+            round_precision=round_precision,
+            unit_display=unit_display,
+        )
+        for row in column
+    ]
+
+
+def _dataframe_table_2(
+    df: pd.DataFrame,
+    config_dict: dict[
+        str, PrintOptions
+    ] = ReportConfig().to_dict(),  # learn to use bloody config
+    unit_display: Literal["header", "cell"] = "header",
+) -> Table:
+    """Atention function may mutate dataframe, converting column units. Caller beware"""
+    width = df.shape[1]
+    # column specifications of tabularray package for latex
+    first_row = "Q[l, m]"
+    remaing_rows = " Q[c, m]"
+    table_spec = f"{first_row}{(width-1)*(remaing_rows)}"
+    tblr = Tblr(table_spec=table_spec, width=width)
+    header_list = []
+    table = [[] for _ in range(df.shape[0])]
+    for name in df.columns:
+        print_config = config_dict.get(name, PrintOptions())
+        # in latex _ is a special character
+        label = print_config.label or name.replace("_", " ")
+        # Assuming dataframe has at least one row and all objects
+        # in a given column are of the same type or nan.
+        # Dropping nan in the series and getting the first element
+        # to deternmine what type the column is populated
+        instance = df[name].dropna().head(1).reset_index(drop=True).at[0]
+
+        if isinstance(instance, pq.Quantity):
+            units = print_config.print_units or instance.units
+            header = _get_header(label=label, units=units, unit_display=unit_display)
+        else:
+            header = label
+        column = _process_column_2(
+            df[name],
+            convert_units=print_config.print_units,
+            round_precision=print_config.round_precision,
+            unit_display=unit_display,
+        )
+        for row, table_row in zip(column, table):
+            table_row.append(row)
+        header_list.append(header)
+    tblr.add_row(header_list)
+    tblr.append(Command("midrule"))
+    for row in table:
+        tblr.add_row(row)
+    return tblr
 
 
 def _dataframe_table(
@@ -486,9 +577,11 @@ def _dataframe_table(
         # in latex _ is a special character
         label = print_config.label or name.replace("_", " ")
         # Assuming dataframe has at least one row and all objects
-        # in a given column are of the same type
-
-        if isinstance(df[name][0], pq.Quantity):
+        # in a given column are of the same type or nan.
+        # Dropping nan in the series and getting the first element
+        # to deternmine what type the column is populated
+        instance = df[name].dropna().head(1)
+        if isinstance(instance, pq.Quantity):
             column = _process_column(
                 column=df[name],
                 convert_units=print_config.print_units,
@@ -497,6 +590,12 @@ def _dataframe_table(
             )
             units = print_config.print_units or df[name][0].units
             header = _get_header(label=label, units=units, unit_display=unit_display)
+        elif isinstance(instance, Criteria):
+            header = label
+            column = [
+                row.to_latex(round_precision=print_config.round_precision)
+                for row in df[name]
+            ]
         else:
             header = label
             column = df[name]
@@ -543,9 +642,11 @@ def _add_df_table(
 ):
     table = Table(position="H")
     table.add_caption(caption)
-    table.append(
-        _dataframe_table(df=df, config_dict=config_dict, unit_display="header")
+    tblr = Center()
+    tblr.append(
+        _dataframe_table_2(df=df, config_dict=config_dict, unit_display="header")
     )
+    table.append(tblr)
     return table
 
 
@@ -585,30 +686,30 @@ def generate_report(
     doc.append(NewPage())
 
     # Section Vessel
-    # section_vessel = Section(VESSEL_SECTION_TITLE)
+    section_vessel = Section(VESSEL_SECTION_TITLE)
 
     # Vessel data
-    # vessels = session.vessels
-    # for vessel in vessels.values():
-    #     options_dict = display_options
-    #     vessel_input = _single_entity_dict_to_table_list(
-    #         serialize_dataclass(obj=vessel, printing_format=True, include_names=True),
-    #         options_dict=options_dict,
-    #     )
-    #     vessel_loads = vessel.loads_asdict
-    #     vessel_loads = _single_entity_dict_to_table_list(vessel_loads)
-    #     vessel_tables = [vessel_input, vessel_loads]
-    #     captions = [f"{vessel.name} parameters", f"{vessel.name} global loads"]
-    #     for array, caption, split in zip(vessel_tables, captions, [4, 2]):
-    #         table = _add_table(
-    #             table_array=array,
-    #             cols="l r",
-    #             caption=caption,
-    #             split=split,
-    #             label="".join(caption.split()),
-    #         )
-    #         section_vessel.append(table)
-    # doc.append(section_vessel)
+    vessels = session.vessels
+    for vessel in vessels.values():
+        options_dict = display_options
+        vessel_input = _single_entity_dict_to_table_list(
+            serialize_dataclass(obj=vessel, printing_format=True, include_names=True),
+            options_dict=options_dict,
+        )
+        vessel_loads = vessel.loads_asdict
+        vessel_loads = _single_entity_dict_to_table_list(vessel_loads)
+        vessel_tables = [vessel_input, vessel_loads]
+        captions = [f"{vessel.name} parameters", f"{vessel.name} global loads"]
+        for array, caption, split in zip(vessel_tables, captions, [4, 2]):
+            table = _add_table(
+                table_array=array,
+                cols="l r",
+                caption=caption,
+                split=split,
+                label="".join(caption.split()),
+            )
+            section_vessel.append(table)
+    doc.append(section_vessel)
 
     # Section Materials
     section_materials = Section(MATERIALS_SECTION_TITLE)
@@ -851,9 +952,13 @@ def generate_report(
     section_results = Section(f"{RULE_CHECK_RESULT_CAPTION}")
     panels_results_df = session.panels_rule_check()
     section_results.append(
-        _add_df_table(panels_results_df, caption=PANELS_SECTION_TITLE)
+        _add_df_table(panels_results_df, caption=f"{PANELS_SECTION_TITLE} results")
+    )
+    stiff_results_df = session.stiffeners_rule_check()
+    section_results.append(
+        _add_df_table(stiff_results_df, caption=f"{STIFFENERS_SECTION_TITLE} results")
     )
     doc.append(section_results)
     doc.generate_tex(file_name)
-    # doc.generate_pdf(file_name, clean_tex=False)
+    doc.generate_pdf(file_name, clean_tex=False, clean=False)
     return doc

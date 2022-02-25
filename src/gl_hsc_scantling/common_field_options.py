@@ -260,6 +260,13 @@ DIM_Y_OPTIONS = DeSerializerOptions(
         units="m",
     )
 )
+CURVATURE_OPTIONS = DeSerializerOptions(
+    metadata=PrintMetadata(
+        long_name="Curvature",
+        abreviation=NoEscape(r"c"),
+        units="m",
+    )
+)
 CURVATURE_X_OPTIONS = DeSerializerOptions(
     metadata=PrintMetadata(
         long_name="Curvature in the x direction",

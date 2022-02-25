@@ -9,16 +9,20 @@ from dataclasses import astuple, dataclass, field, fields
 from itertools import chain
 
 import numpy as np
+import pandas as pd
 from dataclass_tools.tools import (
     DESERIALIZER_OPTIONS,
     DeSerializerOptions,
     PrintMetadata,
 )
 
+from gl_hsc_scantling.utils import Criteria
+
 from .common_field_options import (
     ATT_PLATE_1_OPTIONS,
     ATT_PLATE_2_OPTIONS,
     BOUND_COND_OPTIONS,
+    CURVATURE_OPTIONS,
     DIMENSION_FLANGE_OPTIONS,
     DIMENSION_WEB_OPTIONS,
     LAMINATE_FLANGE_OPTIONS,
@@ -138,10 +142,15 @@ class SectionElement(abc.ABC):
     def bend_stiff(self, angle=0) -> BendStiff:
         """Bending stiffness with respect to y (main)
         and z (secondary) directions - E*I (kPa*m4).
+        Section rotaded given angle.
         """
 
     @property
     def bend_stiff_0(self) -> BendStiff:
+        """Bending stiffness with respect to y (main)
+        and z (secondary) directions - E*I (kPa*m4).
+        Rotation angle = 0.
+        """
         return self.bend_stiff()
 
     @abc.abstractproperty
@@ -162,6 +171,29 @@ class SectionElement(abc.ABC):
     @property
     def center_0(self) -> Point2D:
         return self.center()
+
+    @abc.abstractmethod
+    def limit_z_points(self, angle=0) -> list[Point2D]:
+        """Resturns the 2D points whit the lowes and highest z coordinates."""
+
+    @property
+    def limit_z_points_0(self):
+        return self.limit_z_points()
+
+    def limit_z_anchor_pt(self, angle: float = 0) -> list[float]:
+        return [pt.z for pt in self.limit_z_points(angle=angle)]
+
+    def limit_z_center(self, angle: float = 0) -> list[float]:
+        return self.limit_z_anchor_pt(angle) - self.center(angle).z
+
+    def linear_strain(self, bend_moment: float, angle: float = 0):
+        bend_stiff = self.bend_stiff(angle=angle).y
+        return np.array(
+            [bend_moment * z / bend_stiff for z in self.limit_z_anchor_pt(angle=angle)]
+        )
+
+    def shear_strain_web(self, shear_force: float) -> float:
+        return shear_force / (self.shear_stiff)
 
 
 class HomogeneousSectionElement(SectionElement):
@@ -216,6 +248,11 @@ class RectSectionElement(HomogeneousSectionElement):
         corners = [Point2D(y, 0), Point2D(y, z), Point2D(-y, z), Point2D(-y, 0)]
         return [_coord_transform(corner, angle) for corner in corners]
 
+    def limit_z_points(self, angle=0) -> list[Point2D]:
+        z = np.array([pt.z for pt in self._corners(angle=angle)])
+        indexes = [np.argmin(z), np.argmax(z)]
+        return [self._corners(angle)[i] for i in indexes]
+
     def center(self, angle=0) -> Point2D:
         return _coord_transform(Point2D(0, self.height / 2), angle)
 
@@ -257,7 +294,7 @@ class SectionElmtRectHoriz(RectSectionElement):
 
 
 @dataclass
-class Elmt:
+class Elmt(SectionElement):
     """Section elemented positioned in a stiffener profile."""
 
     sect_elmt: HomogeneousSectionElement
@@ -267,13 +304,18 @@ class Elmt:
 
     def center(self, angle=0) -> Point2D:
         """Centroid of element"""
-        return self.sect_elmt.center(angle + self.angle) + _coord_transform(
-            self.anchor_pt, angle
-        )
+        return self.sect_elmt.center(angle + self.angle) + self.rotaded_anchor_pt(angle)
 
-    @property
-    def center_0(self):
-        return self.center()
+    def rotaded_anchor_pt(self, angle: float = 0):
+        return _coord_transform(self.anchor_pt, angle)
+
+    def limit_z_points(self, angle=0) -> list[Point2D]:
+        a = self.rotaded_anchor_pt(self.angle + angle)
+        l = [limit_pt for limit_pt in self.sect_elmt.limit_z_points(angle)]
+        return [
+            limit_pt + self.rotaded_anchor_pt(self.angle + angle)
+            for limit_pt in self.sect_elmt.limit_z_points(angle)
+        ]
 
     # Output is not really a 2d point, but it works
     def stiff_weighted_center(self, angle=0) -> Point2D:
@@ -307,6 +349,14 @@ class Elmt:
     def bend_stiff_base_0(self):
         return self.bend_stiff_base()
 
+    @property
+    def shear_stiff(self) -> float:
+        return self.sect_elmt.shear_stiff
+
+    @property
+    def stiff(self) -> float:
+        return self.sect_elmt.stiff
+
 
 class SectionElementList(abc.ABC):
     @abc.abstractproperty
@@ -333,6 +383,12 @@ class SectionElementListWithFoot(SectionElementList):
         effective width.
         """
 
+    @abc.abstractmethod
+    def shear_buckling_strain(self, length: float) -> float:
+        """C3.8.6.3 Buckling of orthotropic plates under
+        in-plane shear loads.
+        """
+
 
 @dataclass
 class StiffenerSection(SectionElement):
@@ -351,6 +407,13 @@ class StiffenerSection(SectionElement):
     @property
     def stiff(self):
         return np.sum([elmt.sect_elmt.stiff for elmt in self.elmts])
+
+    def limit_z_points(self, angle=0) -> list[Point2D]:
+        z__limts = np.array([elmt.limit_z_anchor_pt(angle) for elmt in self.elmts])
+        z__limts = z__limts.reshape(2, len(z__limts))
+        z_limit_points = [elmt.limit_z_points(angle) for elmt in self.elmts]
+        idx = [np.argmin(z__limts[0]), np.argmax(z__limts[1])]
+        return [z_limit_points[i][j] for j, i in enumerate(idx)]
 
     def center(self, angle=0) -> Point2D:
         return (
@@ -391,8 +454,45 @@ class LBar(SectionElementListWithFoot):
 
     @property
     def elmts(self) -> list[Elmt]:
-        return [
-            Elmt(SectionElmtRectVert(self.laminate_web, self.dimension_web), web=True),
+        if isinstance(self.laminate_web, SingleSkinLaminate):
+            web_elements = [
+                Elmt(
+                    SectionElmtRectVert(self.laminate_web, self.dimension_web), web=True
+                )
+            ]
+        elif isinstance(self.laminate_web, SandwichLaminate):
+            web_elements = [
+                Elmt(
+                    SectionElmtRectVert(
+                        self.laminate_web.outter_laminate, self.dimension_web
+                    ),
+                    web=True,
+                    anchor_pt=Point2D(
+                        -(
+                            self.laminate_web.core.thickness
+                            + self.laminate_web.outter_laminate.thickness
+                        )
+                        / 2,
+                        0,
+                    ),
+                ),
+                Elmt(
+                    SectionElmtRectVert(
+                        self.laminate_web.inner_laminate, self.dimension_web
+                    ),
+                    web=True,
+                    anchor_pt=Point2D(
+                        (
+                            self.laminate_web.core.thickness
+                            + self.laminate_web.outter_laminate.thickness
+                        )
+                        / 2,
+                        0,
+                    ),
+                ),
+            ]
+
+        return web_elements + [
             Elmt(
                 SectionElmtRectHoriz(self.laminate_flange, self.dimension_flange),
                 anchor_pt=Point2D(
@@ -404,7 +504,10 @@ class LBar(SectionElementListWithFoot):
 
     @property
     def foot_width(self) -> float:
-        return self.elmts[0].sect_elmt.width
+        return self.laminate_web.thickness
+
+    def shear_buckling_strain(self, length: float) -> float:
+        return self.laminate_web.buckling_shear_strain(self.dimension_web, length)
 
 
 ELMT_CONTAINER_SUBTYPES = [LBar]
@@ -432,6 +535,9 @@ class StiffenerSectionWithFoot(StiffenerSection):
     @property
     def name(self):
         return self.elmt_container.name
+
+    def shear_buckling_strain(self, length: float) -> float:
+        return self.elmt_container.shear_buckling_strain(length)
 
 
 @dataclass
@@ -515,6 +621,9 @@ class Stiffener:
     stiff_att_angle: float = field(
         default=0, metadata={DESERIALIZER_OPTIONS: STIFF_ATT_ANGLE_OPTIONS}
     )
+    curvature: float = field(
+        default=0, metadata={DESERIALIZER_OPTIONS: CURVATURE_OPTIONS}
+    )
     bound_cond: BoundaryCondition = field(
         default=BoundaryCondition.FIXED,
         metadata={DESERIALIZER_OPTIONS: BOUND_COND_OPTIONS},
@@ -526,6 +635,7 @@ class Stiffener:
 
     @property
     def spacing(self):
+        """Sum of both spacings"""
         return np.sum(self.spacings)
 
     @property
@@ -578,4 +688,111 @@ class Stiffener:
                     )
                 ]
             )
+        )
+
+    @property
+    def curvature_correction_coef(self):
+        return 1.15 - 5 * self.curvature / self.span
+
+    @property
+    def boundary_cond_coef_bend(self):
+        table = {BoundaryCondition.FIXED: 12.0, BoundaryCondition.SIMPLY_SUPPORTED: 8.0}
+        return table[self.bound_cond]
+
+    @property
+    def boundary_cond_coef_deflection(self):
+        table = {BoundaryCondition.FIXED: 1, BoundaryCondition.SIMPLY_SUPPORTED: 5}
+        return table[self.bound_cond]
+
+    def bending_momt(self, pressure: float) -> float:
+        return (
+            pressure
+            * self.spacing
+            * self.span**2
+            * self.curvature_correction_coef
+            / self.boundary_cond_coef_bend
+        )
+
+    def shear_force(self, pressure: float) -> float:
+        return pressure * self.span * self.spacing / 2
+
+    def deflection(self, pressure: float) -> float:
+        return (
+            pressure
+            * self.spacing
+            * self.span**4
+            * self.boundary_cond_coef_deflection
+            / (384 * self.stiff_section_att_plate.bend_stiff().y)
+        )
+
+    def linear_strains(self, pressure: float) -> list[float]:
+        bend_momt = self.bending_momt(pressure)
+        bend_stiff = self.stiff_section_att_plate.bend_stiff_0.y
+        return [
+            bend_momt * y / bend_stiff
+            for y in self.stiff_section_att_plate.limit_z_center()
+        ]
+
+    def shear_strain(self, pressure: float):
+        return self.stiff_section_att_plate.shear_strain_web(self.shear_force(pressure))
+
+    def rule_check(self, pressure: float):
+        # TODO get safety factos from config and strain limits from laminate properties
+        strain_linear_limt = 0.0105
+        strain_shear_limit = 0.021
+        safety_factor = 3
+        strains = self.linear_strains(pressure)
+        span_deflection_factor = 0.05
+        deflection_check = pd.DataFrame(
+            {
+                "deflection": [
+                    Criteria(
+                        self.deflection(pressure), span_deflection_factor * self.span, 1
+                    )
+                ]
+            }
+        )
+        linear_strain_check_bottom = pd.DataFrame(
+            {
+                "linear_strain_ratio_bottom": [
+                    Criteria(np.abs(strains[0]), strain_linear_limt, safety_factor)
+                ]
+            }
+        )
+        linear_strain_check_top = pd.DataFrame(
+            {
+                "linear_strain_ratio_top": [
+                    Criteria(np.abs(strains[1]), strain_linear_limt, safety_factor)
+                ]
+            }
+        )
+        shear_strain_check = pd.DataFrame(
+            {
+                "shear_strain_ratio": [
+                    Criteria(
+                        self.shear_strain(pressure), strain_shear_limit, safety_factor
+                    )
+                ]
+            }
+        )
+        shear_buckling_strain_check = pd.DataFrame(
+            {
+                "shear_strain_buckling_ratio": [
+                    Criteria(
+                        self.shear_strain(pressure),
+                        self.stiff_section.shear_buckling_strain(self.span),
+                        1,
+                    )
+                ]
+            }
+        )
+        return pd.concat(
+            [
+                deflection_check,
+                linear_strain_check_bottom,
+                linear_strain_check_top,
+                shear_strain_check,
+                shear_buckling_strain_check,
+            ],
+            axis=1,
         )

@@ -11,6 +11,7 @@ from enum import Enum
 from functools import cache
 from re import T
 from typing import Any, Optional, Protocol, Tuple, TYPE_CHECKING
+from urllib import response
 
 import numpy as np
 import pandas as pd
@@ -550,7 +551,7 @@ class Ply:
                 calculated_value=np.abs(strain_),
                 theoretical_limit_value=limit,
                 safety_factor=safety_factor,
-            ).ratio
+            )  # .ratio
             for strain_, limit in zip(strain_local, limit_values)
         ]
         stress_local = self.material.Q_local @ strain_local
@@ -603,6 +604,10 @@ class Laminate(ABC):
                 (5.7101471627692, 224.809, 8850.75),
             ),
         }
+
+    @abstractproperty
+    def thickness(self) -> float:
+        """Overall laminate thickness. Includes core in sandwich laminates"""
 
     @abstractproperty
     def plies(self) -> list[PlyPositioned]:
@@ -798,8 +803,7 @@ class Laminate(ABC):
                     state.__setattr__(key, laminate_state_df)
         return state
 
-    def max_strain_ratio(self, load: list[float]) -> pd.DataFrame:
-        response = self.response_plies(load=load)
+    def max_strain_ratio(self, response: LaminateState) -> pd.DataFrame:
         linear_directions = ["x", "y"]
         linear_strain = np.min(
             [
@@ -807,9 +811,7 @@ class Laminate(ABC):
                 for direction in linear_directions
             ]
         )
-        linear_strain = Quantity(linear_strain, criteria)
         shear_strain = np.min(response.strain_local_ratio["xy"])
-        # shear_strain = Quantity(np.abs(shear_strain))
         return pd.DataFrame(
             {
                 "linear_strain_ratio": [linear_strain],
@@ -832,6 +834,166 @@ class Laminate(ABC):
                 [np.hstack([A_matrix, B_matrix]), np.hstack([B_matrix, D_matrix])]
             )
         )
+
+    @property
+    def seydel_factor(self):
+        D12 = self.stiff_matrix[3, 4]
+        D11 = self.stiff_matrix[3, 3]
+        D22 = self.stiff_matrix[4, 4]
+        D33 = self.stiff_matrix[5, 5]
+        return (D12 + 2 * D33) / (D11 * D22) ** (1 / 2)
+
+    def buckling_shear_strain(self, width: float, length: float) -> float:
+        """C3.8.6.3 Buckling of orthotropic plates under
+        in-plane shear loads.
+        1 Critical buckling strain
+        """
+        D11 = self.stiff_matrix[3, 3]
+        D22 = self.stiff_matrix[4, 4]
+        mod_asp_r = width / length * (D11 / D22) ** (1 / 4)
+        if mod_asp_r <= 1:
+            s = width
+            Da = D11
+            Db = D22
+        else:
+            mod_asp_r = 1 / mod_asp_r
+            s = length
+            Da = D22
+            Db = D11
+        coef_ks = self.calc_coef_ks(mod_asp_r)
+        return (coef_ks * (np.pi / s) ** 2 * (Da * Db**3) ** (0.25)) / (
+            self.modulus_xy * self.thickness_eff
+        )
+
+    def calc_coef_ks(self, asp_ratio):
+        """C3.8.6.3 Buckling of orthotropic plates under
+        in-plane shear loads.
+        kS = buckling coefficient, as per Fig. C3.8.12
+        """
+        xp = np.array(range(11)) / 10
+        fp = {
+            0.0: [
+                3.34528,
+                3.37329,
+                3.42097,
+                3.48325,
+                3.55803,
+                3.66243,
+                3.81342,
+                4.00646,
+                4.23399,
+                4.49888,
+                4.80574,
+            ],
+            0.4: [
+                4.23778,
+                4.24273,
+                4.30864,
+                4.42958,
+                4.59181,
+                4.79673,
+                5.06405,
+                5.41067,
+                5.83258,
+                6.30655,
+                6.81896,
+            ],
+            0.8: [
+                4.97935,
+                5.0401,
+                5.15263,
+                5.319,
+                5.55205,
+                5.86016,
+                6.24856,
+                6.70883,
+                7.22622,
+                7.78833,
+                8.404,
+            ],
+            1.0: [
+                5.28092,
+                5.36478,
+                5.50693,
+                5.70784,
+                5.95351,
+                6.26361,
+                6.6815,
+                7.19426,
+                7.79788,
+                8.51283,
+                9.33426,
+            ],
+            1.2: [
+                5.6772,
+                5.80211,
+                5.95189,
+                6.14655,
+                6.43489,
+                6.82919,
+                7.32083,
+                7.90675,
+                8.58399,
+                9.34883,
+                10.20889,
+            ],
+            1.6: [
+                6.35288,
+                6.46749,
+                6.63198,
+                6.85659,
+                7.19295,
+                7.66999,
+                8.27659,
+                9.0039,
+                9.85082,
+                10.80789,
+                11.86192,
+            ],
+            2.0: [
+                6.95278,
+                7.09907,
+                7.32589,
+                7.64945,
+                8.09345,
+                8.66811,
+                9.37673,
+                10.20068,
+                11.14849,
+                12.24589,
+                13.53398,
+            ],
+            2.4: [
+                7.57073,
+                7.80339,
+                8.06953,
+                8.41767,
+                8.91613,
+                9.58415,
+                10.43038,
+                11.4412,
+                12.56962,
+                13.84555,
+                15.32557,
+            ],
+            2.8: [
+                8.1678,
+                8.30154,
+                8.56435,
+                8.98312,
+                9.57548,
+                10.36163,
+                11.34033,
+                12.4871,
+                13.80315,
+                15.28743,
+                16.92195,
+            ],
+        }
+        beta_values = list(fp.keys())
+        index = np.searchsorted(beta_values, self.seydel_factor)
+        betas = [beta_values[index - 1], beta_values[index]]
+        return sum([np.interp(asp_ratio, xp, fp[beta]) for beta in betas]) / 2
 
 
 @dataclass
@@ -914,7 +1076,8 @@ class SingleSkinLaminate(Laminate):
 
     def panel_rule_check(self, panel: "Panel", pressure: float) -> pd.DataFrame:
         load = panel.load_array(pressure=pressure)
-        return self.max_strain_ratio(load=load)
+        response = self.response_plies(load)
+        return self.max_strain_ratio(response)
 
 
 @dataclass
@@ -1035,21 +1198,19 @@ class SandwichLaminate(Laminate):
         )
 
     def core_shear_stress_ratio(self, shear_force: float):
-        ratio = Quantity(
-            Criteria(
-                calculated_value=self.core_shear_stress(shear_force=shear_force),
-                theoretical_limit_value=self.core.material.strength_shear,
-                safety_factor=CORE_SHEAR_SF,
-            ).ratio
+        ratio = Criteria(
+            calculated_value=self.core_shear_stress(shear_force=shear_force),
+            theoretical_limit_value=self.core.material.strength_shear,
+            safety_factor=CORE_SHEAR_SF,
         )
         return pd.DataFrame({"core_shear_stress_ratio": [ratio]})
 
-    def critical_skin_wrinkling_solid_core(self, panel):
+    def _critical_skin_wrinkling_solid_core(self, panel):
         """C3.8.6.1 Skin wrinkling of sandwich skins"""
         K1 = 0.5
         index = panel.direction_table[panel.span_direction]
         flexural_modulus = self.outter_laminate.bend_stiff[index] / (
-            self.outter_laminate.thickness ^ 3 / 12
+            self.outter_laminate.thickness**3 / 12
         )
         return (
             K1
@@ -1058,16 +1219,32 @@ class SandwichLaminate(Laminate):
                 * self.core.material.modulus_comp
                 * self.core.material.modulus_shear
             )
-            ^ 0.5 / self.outter_laminate.modulus[index]
+            ** 0.5
+            / self.outter_laminate.modulus[index]
         )
 
-    @property
-    def _critical_skin_wrinkling_funtcion(self):
-        table = {}
+    def _critical_skin_wrinkling(self, panel: "Panel"):
+        table = {CoreType.SOLID: self._critical_skin_wrinkling_solid_core}
+        return table[self.core.material.core_type](panel=panel)
+
+    def skin_wrinkling_check(self, panel: "Panel", response: LaminateState):
+        critical_strain = self._critical_skin_wrinkling(panel)
+        outer_skin_ply_index = len(self.outter_laminate_ply_stack.plies)
+        direction = panel.span_direction
+        max_compression_strain = np.min(response.strain_global[direction])
+        ratio = Criteria(
+            calculated_value=np.abs(max_compression_strain),
+            theoretical_limit_value=critical_strain,
+            safety_factor=1,
+        )
+        return pd.DataFrame({"skin_wrinkling_ratio": [ratio]})
 
     def panel_rule_check(self, panel: "Panel", pressure: float) -> pd.DataFrame:
-        strain_check = self.max_strain_ratio(load=panel.load_array(pressure=pressure))
+        load = panel.load_array(pressure=pressure)
+        response = self.response_plies(load)
+        strain_check = self.max_strain_ratio(response)
         core_shear_check = self.core_shear_stress_ratio(
             shear_force=panel.max_shear_force(pressure=pressure)
         )
-        return pd.concat([strain_check, core_shear_check], axis=1)
+        wrinkling_check = self.skin_wrinkling_check(panel=panel, response=response)
+        return pd.concat([strain_check, core_shear_check, wrinkling_check], axis=1)

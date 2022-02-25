@@ -43,10 +43,39 @@ class ReportConfig:
     dimension_web: PrintOptions = PrintOptions()
     dimension_flange: PrintOptions = PrintOptions()
     linear_strain_ratio: PrintOptions = PrintOptions(
-        round_precision=2, label=NoEscape(r"$\epsilon$"), description="Linear strain"
+        round_precision=2,
+        label=NoEscape(r"$\epsilon$"),
+        description="Linear strain",
+    )
+    linear_strain_ratio_bottom: PrintOptions = PrintOptions(
+        round_precision=2,
+        label=NoEscape(r"$\epsilon$\textsubscript{B}"),
+        description="Linear strain",
+    )
+    linear_strain_ratio_top: PrintOptions = PrintOptions(
+        round_precision=2,
+        label=NoEscape(r"$\epsilon$\textsubscript{T}"),
+        description="Linear strain",
     )
     shear_strain_ratio: PrintOptions = PrintOptions(
-        round_precision=2, label=NoEscape(r"$\gamma$"), description="Shear strain"
+        round_precision=2,
+        label=NoEscape(r"$\gamma$"),
+        description="Shear strain",
+    )
+    shear_strain_buckling_ratio: PrintOptions = PrintOptions(
+        round_precision=2,
+        label=NoEscape(r"$\gamma$\textsubscript{buck}"),
+        description="Buckling shear strain",
+    )
+    design_pressure_type: PrintOptions = PrintOptions(
+        label=NoEscape(r"{design p\\ type}")
+    )
+    design_pressure: PrintOptions = PrintOptions(label="design p")
+    core_shear_stress_ratio: PrintOptions = PrintOptions(
+        label=NoEscape(r"$\gamma$\textsubscript{core}")
+    )
+    skin_wrinkling_ratio: PrintOptions = PrintOptions(
+        label=NoEscape(r"$\epsilon$\textsubscript{wrinkle}")
     )
 
     def to_dict(self):

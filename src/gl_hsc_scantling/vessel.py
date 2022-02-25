@@ -340,7 +340,9 @@ class Vessel:
     # C3.3.3.2
     @property
     def coef_kcat(self):
-        return np.max([1 + (self.dist_hull_cl - self.max_wave_height) / self.length, 1])
+        return np.max(
+            [1 + (self.dist_hull_cl - self.max_wave_height) / self.length, 1.0]
+        )
 
     # C3.3.3.2
     @property
@@ -363,42 +365,3 @@ class Vessel:
     @property
     def coef_kh(self):
         return self.coef_k**0.35 * ((1 / self.coef_k**2 - 0.11) ** 2 + 1) ** 0.5
-
-    # def input_print_options(
-    #     self,
-    #     name: PrintOptions = PrintOptions(),
-    #     speed: PrintOptions = PrintOptions(),
-    #     displacement: PrintOptions = PrintOptions(),
-    #     length: PrintOptions = PrintOptions(),
-    #     beam: PrintOptions = PrintOptions(),
-    #     fwd_perp: PrintOptions = PrintOptions(),
-    #     aft_perp: PrintOptions = PrintOptions(),
-    #     draft: PrintOptions = PrintOptions(),
-    #     z_baseline: PrintOptions = PrintOptions(),
-    #     block_coef: PrintOptions = PrintOptions(),
-    #     water_plane_area: PrintOptions = PrintOptions(),
-    #     lcg: PrintOptions = PrintOptions(),
-    #     deadrise_lcg: PrintOptions = PrintOptions(round_precision=1),
-    #     dist_hull_cl: PrintOptions = PrintOptions(),
-    #     type_of_service: PrintOptions = PrintOptions(),
-    #     service_range: PrintOptions = PrintOptions(),
-    # ):
-    #     table = {
-    #         "name": name,
-    #         "speed": speed,
-    #         "displacement": displacement,
-    #         "length": length,
-    #         "beam": beam,
-    #         "fwd_perp": fwd_perp,
-    #         "aft_perp": aft_perp,
-    #         "draft": draft,
-    #         "z_baseline": z_baseline,
-    #         "block_coef": block_coef,
-    #         "water_plane_area": water_plane_area,
-    #         "lcg": lcg,
-    #         "deadrise_lcg": deadrise_lcg,
-    #         "dist_hull_cl": dist_hull_cl,
-    #         "type_of_service": type_of_service,
-    #         "service_range": service_range,
-    #     }
-    #     return table
