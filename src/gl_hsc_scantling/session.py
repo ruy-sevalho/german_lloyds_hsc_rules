@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field, fields
 from typing import Union
+from json import dump
 
 import pandas as pd
 
@@ -156,74 +157,141 @@ class Session:
             dict_of_collections={},
         )
 
-    def _load_dict(self, dict_of_values: dict, typ, dict_of_collections=None):
+    def _load_list(self, list_of_values: list[dict], typ, dict_of_collections=None):
         return {
-            name: deserialize_dataclass(
+            value["name"]: deserialize_dataclass(
                 dct=value,
                 dataclass=typ,
                 build_instance=True,
                 dict_of_collections=dict_of_collections,
             )
-            for name, value in dict_of_values.items()
+            for value in list_of_values
         }
 
-    def _load_dict_multiple_types(
+    # def _load_dict(self, dict_of_values: dict, typ, dict_of_collections=None):
+    #     return {
+    #         name: deserialize_dataclass(
+    #             dct=value,
+    #             dataclass=typ,
+    #             build_instance=True,
+    #             dict_of_collections=dict_of_collections,
+    #         )
+    #         for name, value in dict_of_values.items()
+    #     }
+
+    def _load_list_multiple_types(
         self,
-        dict_of_values: dict,
+        list_of_values: list[dict],
         subtypes_table: dict,
         dict_of_collections: dict = None,
     ):
         dict_ = dict()
         for type_key, type_class in subtypes_table.items():
-            dict_of_values_filetered = dict(
-                filter(
-                    lambda item: item[1][TYPE_LABEL] == type_key, dict_of_values.items()
-                )
+            list_of_values_filetered = list(
+                filter(lambda item: item[TYPE_LABEL] == type_key, list_of_values)
             )
             dict_.update(
-                self._load_dict(
-                    dict_of_values=dict_of_values_filetered,
+                self._load_list(
+                    list_of_values=list_of_values_filetered,
                     typ=type_class,
                     dict_of_collections=dict_of_collections,
                 )
             )
         return dict_
 
+    # def _load_dict_multiple_types(
+    #     self,
+    #     dict_of_values: dict,
+    #     subtypes_table: dict,
+    #     dict_of_collections: dict = None,
+    # ):
+    #     dict_ = dict()
+    #     for type_key, type_class in subtypes_table.items():
+    #         dict_of_values_filetered = dict(
+    #             filter(
+    #                 lambda item: item[1][TYPE_LABEL] == type_key, dict_of_values.items()
+    #             )
+    #         )
+    #         dict_.update(
+    #             self._load_dict(
+    #                 dict_of_values=dict_of_values_filetered,
+    #                 typ=type_class,
+    #                 dict_of_collections=dict_of_collections,
+    #             )
+    #         )
+    #     return dict_
+
     def load_session(self, session: dict):
-        self.vessels = self._load_dict(session["vessels"], Vessel)
-        self.matrices = self._load_dict(session["matrices"], Matrix)
-        self.fibers = self._load_dict(session["fibers"], Fiber)
-        self.laminas = self._load_dict(
+        self.vessels = self._load_list(session["vessels"], Vessel)
+        self.matrices = self._load_list(session["matrices"], Matrix)
+        self.fibers = self._load_list(session["fibers"], Fiber)
+        self.laminas = self._load_list(
             session["laminas"],
             Lamina,
             dict_of_collections=self.session_dict,
         )
-        self.core_materials = self._load_dict(session["core_materials"], CoreMat)
-        self.cores = self._load_dict(
+        self.core_materials = self._load_list(session["core_materials"], CoreMat)
+        self.cores = self._load_list(
             session["cores"], Core, dict_of_collections=self.session_dict
         )
-        self.laminates = self._load_dict_multiple_types(
-            dict_of_values=session["laminates"],
+        self.laminates = self._load_list_multiple_types(
+            list_of_values=session["laminates"],
             subtypes_table={
                 typ.__name__: typ for typ in [SingleSkinLaminate, SandwichLaminate]
             },
             dict_of_collections=self.session_dict,
         )
-        self.stiffener_sections = self._load_dict(
-            dict_of_values=session["stiffener_sections"],
+        self.stiffener_sections = self._load_list(
+            list_of_values=session["stiffener_sections"],
             typ=StiffenerSectionWithFoot,
             dict_of_collections=self.session_dict,
         )
-        self.stiffener_elements = self._load_dict(
-            dict_of_values=session["stiffener_elements"],
+        self.stiffener_elements = self._load_list(
+            list_of_values=session["stiffener_elements"],
             typ=StructuralElement,
             dict_of_collections=self.session_dict,
         )
-        self.panels = self._load_dict(
-            dict_of_values=session["panels"],
+        self.panels = self._load_list(
+            list_of_values=session["panels"],
             typ=StructuralElement,
             dict_of_collections=self.session_dict,
         )
+
+    # def load_session(self, session: dict):
+    #     self.vessels = self._load_dict(session["vessels"], Vessel)
+    #     self.matrices = self._load_dict(session["matrices"], Matrix)
+    #     self.fibers = self._load_dict(session["fibers"], Fiber)
+    #     self.laminas = self._load_dict(
+    #         session["laminas"],
+    #         Lamina,
+    #         dict_of_collections=self.session_dict,
+    #     )
+    #     self.core_materials = self._load_dict(session["core_materials"], CoreMat)
+    #     self.cores = self._load_dict(
+    #         session["cores"], Core, dict_of_collections=self.session_dict
+    #     )
+    #     self.laminates = self._load_dict_multiple_types(
+    #         dict_of_values=session["laminates"],
+    #         subtypes_table={
+    #             typ.__name__: typ for typ in [SingleSkinLaminate, SandwichLaminate]
+    #         },
+    #         dict_of_collections=self.session_dict,
+    #     )
+    #     self.stiffener_sections = self._load_dict(
+    #         dict_of_values=session["stiffener_sections"],
+    #         typ=StiffenerSectionWithFoot,
+    #         dict_of_collections=self.session_dict,
+    #     )
+    #     self.stiffener_elements = self._load_dict(
+    #         dict_of_values=session["stiffener_elements"],
+    #         typ=StructuralElement,
+    #         dict_of_collections=self.session_dict,
+    #     )
+    #     self.panels = self._load_dict(
+    #         dict_of_values=session["panels"],
+    #         typ=StructuralElement,
+    #         dict_of_collections=self.session_dict,
+    #     )
 
     def panels_rule_check(self):
         df = pd.DataFrame()
@@ -238,3 +306,14 @@ class Session:
             df = pd.concat([df, stifferner.rule_check], ignore_index=True)
         n = df["name"][0]
         return df
+
+    def to_json(self, file_name: str = "session.json"):
+        """Dumps session to a json file.
+        file_name = file path/name to write to.
+        """
+        d = {
+            key: [value for value in values.values()]
+            for key, values in serialize_dataclass(self).items()
+        }
+        with open(file_name, "w") as f:
+            dump(d, f)
