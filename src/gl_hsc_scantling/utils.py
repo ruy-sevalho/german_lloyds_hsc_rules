@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from functools import total_ordering
+from functools import cached_property as proprety
 from quantities import UnitQuantity
 from quantities import Quantity as Quant
 from pylatex import Quantity, Command

@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from quantities import Quantity
 from dataclass_tools.tools import DESERIALIZER_OPTIONS, DeSerializerOptions
+from functools import cached_property as property
 
 from gl_hsc_scantling.utils import Criteria
 

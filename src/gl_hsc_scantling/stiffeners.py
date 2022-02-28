@@ -7,6 +7,7 @@ Created on Wed Mar 31 12:28:58 2021
 import abc
 from dataclasses import astuple, dataclass, field, fields
 from itertools import chain
+from functools import cached_property as property
 
 import numpy as np
 import pandas as pd

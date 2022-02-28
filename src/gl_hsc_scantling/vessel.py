@@ -8,7 +8,7 @@ from __future__ import annotations
 from abc import ABC
 from dataclasses import dataclass, field
 from enum import Enum
-
+from functools import cached_property as property
 import numpy as np
 from dataclass_tools.tools import (
     DESERIALIZER_OPTIONS,

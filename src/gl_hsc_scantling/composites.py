@@ -9,9 +9,11 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass, field, astuple
 from enum import Enum
 from functools import cache
+from functools import cached_property as property
+
 from re import T
 from typing import Any, Optional, Protocol, Tuple, TYPE_CHECKING
-from urllib import response
+
 
 import numpy as np
 import pandas as pd
