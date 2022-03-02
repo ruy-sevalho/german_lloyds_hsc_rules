@@ -21,3 +21,4 @@ report.toc
 report.lot
 pandas_exploration.ipynb
 example_load_from_json.py
+*.prof

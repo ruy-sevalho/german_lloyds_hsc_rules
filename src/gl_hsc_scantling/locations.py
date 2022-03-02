@@ -4,19 +4,18 @@ Created on Wed Mar 31 12:19:42 2021
 
 @author: ruy
 """
-from __future__ import annotations
+
 
 from abc import abstractmethod
 from typing import TYPE_CHECKING
 
 
-if TYPE_CHECKING:
-    from .elements import StructuralElement
-
 from dataclasses import dataclass, field
 
 import numpy as np
 from dataclass_tools.tools import DESERIALIZER_OPTIONS
+
+from gl_hsc_scantling.vessel import Vessel
 
 from .locations_abc import Location, Pressure
 from .panels import Panel
@@ -27,6 +26,8 @@ from .common_field_options import (
     DECKHOUSE_BREADTH_OPTIONS,
 )
 
+if TYPE_CHECKING:
+    from .elements import StructuralElement
 # Helper functions, all 'pure'.
 def _pressure_sea_f(z_baseline, draft, p_sea_min, factor_S):
     if z_baseline <= draft:
@@ -244,17 +245,17 @@ class Sea(Pressure):
 
     name = "sea"
 
-    def calc(self, elmt: StructuralElement) -> float:
+    def calc(self, elmt: "StructuralElement") -> float:
         return self._pressure(elmt)
 
-    def _pressure_limit(self, elmt: StructuralElement, x_lim: float) -> float:
+    def _pressure_limit(self, elmt: "StructuralElement", x_lim: float) -> float:
         return _pressure_sea_interpolate_f(
             x_pos=x_lim,
             pressure_below_05=self._pressure_below_05L(elmt=elmt),
             pressure_above_09=self._pressure_above_09L(elmt=elmt),
         )
 
-    def _pressure(self, elmt: StructuralElement) -> float:
+    def _pressure(self, elmt: "StructuralElement") -> float:
         """C3.5.5.1"""
         return _pressure_sea_interpolate_f(
             x_pos=elmt.x_pos,
@@ -262,7 +263,7 @@ class Sea(Pressure):
             pressure_above_09=self._pressure_above_09L(elmt=elmt),
         )
 
-    def _pressure_below_05L(self, elmt: StructuralElement) -> float:
+    def _pressure_below_05L(self, elmt: "StructuralElement") -> float:
         return _pressure_sea_f(
             z_baseline=elmt.z_baseline,
             draft=elmt.vessel.draft,
@@ -270,7 +271,7 @@ class Sea(Pressure):
             factor_S=self._factor_S_aft(elmt=elmt),
         )
 
-    def _pressure_above_09L(self, elmt: StructuralElement) -> float:
+    def _pressure_above_09L(self, elmt: "StructuralElement") -> float:
         return _pressure_sea_f(
             z_baseline=elmt.z_baseline,
             draft=elmt.vessel.draft,
@@ -319,51 +320,51 @@ class ImpactPressure(Pressure):
     def calc(self, elmt) -> float:
         return self._pressure_impact(elmt)
 
-    def _x_lim(self, elmt) -> float:
+    def _x_lim(self, elmt: "StructuralElement") -> float:
         return _x_lim_f(
             vert_acg=elmt.vessel.vert_acg,
             x_lim_Froude_n_min=self._x_lim_sp_len_ratio_min(elmt),
             x_lim_Froude_n_max=self._x_lim_sp_len_ratio_max(elmt),
         )
 
-    def _x_lim_sp_len_ratio_min(self, elmt) -> float:
+    def _x_lim_sp_len_ratio_min(self, elmt: "StructuralElement") -> float:
         return _x_lim_sp_len_ratio_min_f(
             sp_len_ratio=elmt.vessel.sp_len_ratio,
             x_lim_min_acg_inf=self._x_lim_min_acg_inf,
             x_lim_min_acg_sup=self._x_lim_min_acg_sup,
         )
 
-    def _x_lim_sp_len_ratio_max(self, elmt) -> float:
+    def _x_lim_sp_len_ratio_max(self, elmt: "StructuralElement") -> float:
         return _x_lim_sp_len_ratio_max_f(
             sp_len_ratio=elmt.vessel.sp_len_ratio,
             x_lim_max_acg=self._x_lim_max_acg,
         )
 
-    def _ref_area(self, elmt):
+    def _ref_area(self, elmt: "StructuralElement"):
         return _ref_area_f(
             displacement=elmt.vessel.displacement, draft=elmt.vessel.draft
         )
 
-    def _coef_k3(self, elmt):
+    def _coef_k3(self, elmt: "StructuralElement"):
         return _coef_k3_f(
             deadrise_eff=_effective_deadrise(elmt.location.deadrise),
             deadrise_lcg_eff=_effective_deadrise(elmt.vessel.deadrise_lcg),
         )
 
-    def _param_u(self, elmt):
+    def _param_u(self, elmt: "StructuralElement"):
         return _param_u_f(area=elmt.model.area, ref_area=self._ref_area(elmt))
 
-    def _coef_k2(self, elmt: StructuralElement):
+    def _coef_k2(self, elmt: "StructuralElement"):
         return _coef_k2_f(
             self._param_u(elmt), self._coef_k2_min_table[type(elmt.model)]
         )
 
-    def _pressure_sea_limit(self, elmt: StructuralElement) -> float:
+    def _pressure_sea_limit(self, elmt: "StructuralElement") -> float:
         return self.sea_pressure._pressure_limit(
             elmt=elmt, x_lim=self._x_lim(elmt) - 0.1
         )
 
-    def _pressure_impact(self, elmt):
+    def _pressure_impact(self, elmt: "StructuralElement"):
         return _pressure_impact_f(
             x_pos=elmt.x_pos,
             x_lim=self._x_lim(elmt),
@@ -373,11 +374,11 @@ class ImpactPressure(Pressure):
         )
 
     @abstractmethod
-    def _pressure_impact_pre(self, elmt):
+    def _pressure_impact_pre(self, elmt: "StructuralElement"):
         pass
 
     @abstractmethod
-    def _pressure_impact_limit(self, elmt):
+    def _pressure_impact_limit(self, elmt: "StructuralElement"):
         pass
 
 
@@ -391,10 +392,10 @@ class ImpactBottomPressure(ImpactPressure):
     def _coef_k1(self, elmt) -> float:
         return _coef_k1_f(x_pos=elmt.x_pos)
 
-    def _coef_k1_limit(self, elmt) -> float:
+    def _coef_k1_limit(self, elmt: "StructuralElement") -> float:
         return _coef_k1_f(x_pos=self._x_lim(elmt))
 
-    def _pressure_impact_pre(self, elmt) -> float:
+    def _pressure_impact_pre(self, elmt: "StructuralElement") -> float:
         return _pressure_impact_bottom_pre_f(
             draft=elmt.vessel.draft,
             vert_acg=elmt.vessel.vert_acg,
@@ -403,7 +404,7 @@ class ImpactBottomPressure(ImpactPressure):
             coef_k3=self._coef_k3(elmt),
         )
 
-    def _pressure_impact_limit(self, elmt) -> float:
+    def _pressure_impact_limit(self, elmt: "StructuralElement") -> float:
         return _pressure_impact_bottom_pre_f(
             draft=elmt.vessel.draft,
             vert_acg=elmt.vessel.vert_acg,
@@ -420,15 +421,15 @@ class ImpactWetDeckPressure(ImpactPressure):
     _x_lim_min_acg_sup = 0.7
     _x_lim_max_acg = 0.7
 
-    def _coef_kwd(self, elmt):
+    def _coef_kwd(self, elmt: "StructuralElement"):
         return _coef_kwd_f(x_pos=elmt.x_pos)
 
-    def _rel_impact_vel(self, elmt):
+    def _rel_impact_vel(self, elmt: "StructuralElement"):
         return _rel_impact_vel_f(
             sig_wave_height=elmt.vessel.sig_wave_height, length=elmt.vessel.length
         )
 
-    def _pressure_impact_pre(self, elmt):
+    def _pressure_impact_pre(self, elmt: "StructuralElement"):
         return _pressure_impact_wet_deck_pre_f(
             speed=elmt.vessel.speed,
             sig_wave_height=elmt.vessel.sig_wave_height,
@@ -439,7 +440,7 @@ class ImpactWetDeckPressure(ImpactPressure):
             rel_impact_vel=self._rel_impact_vel(elmt),
         )
 
-    def _coef_kwd_limit(self, elmt: StructuralElement) -> float:
+    def _coef_kwd_limit(self, elmt: "StructuralElement") -> float:
         return _coef_kwd_f(self._x_lim(elmt))
 
     def _pressure_impact_limit(self, elmt):
@@ -459,10 +460,10 @@ class DeckPressure(Pressure):
 
     name = "deck"
 
-    def calc(self, elmt):
+    def calc(self, elmt: "StructuralElement"):
         return self._pressure_deck(elmt)
 
-    def _pressure_deck(self, elmt):
+    def _pressure_deck(self, elmt: "StructuralElement"):
         return _pressure_deck_f(z_waterline=elmt.z_waterline)
 
 
@@ -471,18 +472,18 @@ class DeckHousePressure(Pressure):
 
     name = "deckhouse"
 
-    def calc(self, elmt):
+    def calc(self, elmt: "StructuralElement"):
         return self._pressure_walls(elmt)
 
-    def _x1(self, elmt):
+    def _x1(self, elmt: "StructuralElement"):
         return _x1_f(midship=elmt.vessel.midship, x_pos=elmt.x_pos, x=elmt.x)
 
-    def _coef_ksu(self, elmt):
+    def _coef_ksu(self, elmt: "StructuralElement"):
         return _coef_ksu_f(
             beam=elmt.vessel.beam, deckhouse_breadth=elmt.location.deckhouse_breadth
         )
 
-    def _pressure_walls(self, elmt):
+    def _pressure_walls(self, elmt: "StructuralElement"):
         return _pressure_walls_f(
             length=elmt.vessel.lenght,
             block_coef=elmt.vessel.block_coef,
@@ -493,28 +494,28 @@ class DeckHousePressure(Pressure):
         )
 
     @abstractmethod
-    def _pressure_walls_min(self, elmt):
+    def _pressure_walls_min(self, elmt: "StructuralElement"):
         pass
 
 
 class DeckHouseMainFrontPressure(DeckHousePressure):
     name = "deckhouse main front"
 
-    def _pressure_walls_min(self, elmt):
-        return _pressure_walls_min_f(length=elmt.vessel.lenght)
+    def _pressure_walls_min(self, elmt: "StructuralElement"):
+        return _pressure_walls_min_f(length=elmt.vessel.length)
 
 
 class DeckHouseMainSidePressure(DeckHousePressure):
     name = "deckhouse main side"
 
-    def _pressure_walls_min(self, elmt):
+    def _pressure_walls_min(self, elmt: "StructuralElement"):
         return 4
 
 
 class DeckHouseOtherPressure(DeckHousePressure):
     name = "deckhouse other"
 
-    def _pressure_walls_min(self, elmt):
+    def _pressure_walls_min(self, elmt: "StructuralElement"):
         return 3
 
 
