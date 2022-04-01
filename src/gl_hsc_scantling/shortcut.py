@@ -26,7 +26,7 @@ from .locations import (
 from .panels import Panel
 from .session import Session
 from .stiffeners import LBar, Stiffener, StiffenerSection, StiffenerSectionWithFoot
-from .vessel import Vessel
+from .vessel import Monohull
 
 # from .read_xls import read_xls
 # from .to_tex import to_tex

@@ -91,7 +91,7 @@ POISSON_OPTIONS = DeSerializerOptions(
 abv_registry.append(POISSON_OPTIONS)
 POISSON_XY_OPTIONS = DeSerializerOptions(
     metadata=PrintMetadata(
-        long_name=NoEscape("Poisson\textsubscript{xy} coef"),
+        long_name=NoEscape(r"Poisson\textsubscript{xy} coef"),
         abreviation=NoEscape(r"$\nu$\textsubscript{xy}"),
         units="",
     )
@@ -99,7 +99,7 @@ POISSON_XY_OPTIONS = DeSerializerOptions(
 abv_registry.append(POISSON_XY_OPTIONS)
 POISSON_YX_OPTIONS = DeSerializerOptions(
     metadata=PrintMetadata(
-        long_name=NoEscape("Poisson\textsubscript{yx} coef"),
+        long_name=NoEscape(r"Poisson\textsubscript{yx} coef"),
         abreviation=NoEscape(r"$\nu$\textsubscript{yx}"),
         units="",
     )

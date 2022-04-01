@@ -204,7 +204,7 @@ class VesselLoads:
 
 
 @dataclass
-class Vessel:
+class Monohull:
     """Vessel for the 2012 German Lloyds High Speed Craft
     scantling rules.
     """
@@ -224,7 +224,7 @@ class Vessel:
     )
     lcg: float = field(metadata={DESERIALIZER_OPTIONS: LCG_OPTIONS})
     deadrise_lcg: float = field(metadata={DESERIALIZER_OPTIONS: DEADRISE_LCG_OPTIONS})
-    dist_hull_cl: float = field(metadata={DESERIALIZER_OPTIONS: DIST_HULL_CL_OPTIONS})
+
     type_of_service: TypeOfService = field(
         metadata={DESERIALIZER_OPTIONS: TYPE_OF_SERVICE_OPTIONS},
         default=TypeOfService.PASSENGER,
@@ -251,7 +251,7 @@ class Vessel:
     @property
     def serv_range_coef(self):
         table = {
-            ServiceRange.USR: 1,
+            ServiceRange.USR: 1.0,
             ServiceRange.RSA_200: 0.9,
             ServiceRange.RSA_50: 0.75,
             ServiceRange.RSA_20: 0.66,
@@ -272,7 +272,7 @@ class Vessel:
         return (self.lcg - self.aft_perp) / (self.fwd_perp - self.aft_perp)
 
     @property
-    def sp_len_ratio(self):
+    def sp_len_ratio(self) -> float:
         return self.speed / self.length**0.5
 
     # C3.3.1
@@ -281,8 +281,65 @@ class Vessel:
         """Vertical acceletation at LCGm, output in g (9.81 m/s2)"""
         acg = self.serv_type_coef * self.serv_range_coef * self.sp_len_ratio
         if self.type_of_service == TypeOfService.PASSENGER:
-            return min([1, acg])
+            return min([1.0, acg])
         return acg
+
+    @property
+    def max_wave_height(self):
+        """C3.3.3 Assessment of limit operating conditions"""
+        return (
+            5
+            * np.max([self.vert_acg, 1])
+            / self.speed
+            * self.length**1.5
+            / (6 + 0.14 * self.length)
+        )
+
+    @property
+    def sig_wave_height(self):
+        """C3.3.3.2 Limitation imposed by vertical acceleration at LCG"""
+        return 10.9 * self.vert_acg * self.coef_kcat * self.coef_kh / self.coef_kf**2
+
+    # C3.3.3.2
+    @property
+    def coef_kcat(self):
+        return 1.0
+
+    # C3.3.3.2
+    @property
+    def coef_kf(self):
+        return 3.23 / self.length * (2.43 * self.length**0.5 + self.speed)
+
+    # C3.3.3.2
+    @property
+    def coef_kt(self):
+        return (
+            4.6 * self.water_plane_area / self.displacement * (self.x_pos_cg) ** 0.5
+        ) ** 0.5
+
+    # C3.3.3.2
+    @property
+    def coef_k(self):
+        return self.coef_kf / self.coef_kt
+
+    # C3.3.3.2
+    @property
+    def coef_kh(self):
+        return self.coef_k**0.35 * ((1 / self.coef_k**2 - 0.11) ** 2 + 1) ** 0.5
+
+
+@dataclass
+class Catamaran(Monohull):
+    dist_hull_cl: float = field(
+        metadata={DESERIALIZER_OPTIONS: DIST_HULL_CL_OPTIONS}, default=0
+    )
+
+    # C3.3.3.2
+    @property
+    def coef_kcat(self):
+        return np.max(
+            [1 + (self.dist_hull_cl - self.max_wave_height) / self.length, 1.0]
+        )
 
     # C3.4.2.3
     @property
@@ -320,48 +377,3 @@ class Vessel:
             trans_tors_moment=self.transverse_torsional_moment,
         )
         return serialize_dataclass(loads, printing_format=True, include_names=True)
-
-    @property
-    def max_wave_height(self):
-        """C3.3.3 Assessment of limit operating conditions"""
-        return (
-            5
-            * np.max([self.vert_acg, 1])
-            / self.speed
-            * self.length**1.5
-            / (6 + 0.14 * self.length)
-        )
-
-    @property
-    def sig_wave_height(self):
-        """C3.3.3.2 Limitation imposed by vertical acceleration at LCG"""
-        return 10.9 * self.vert_acg * self.coef_kcat * self.coef_kh / self.coef_kf**2
-
-    # C3.3.3.2
-    @property
-    def coef_kcat(self):
-        return np.max(
-            [1 + (self.dist_hull_cl - self.max_wave_height) / self.length, 1.0]
-        )
-
-    # C3.3.3.2
-    @property
-    def coef_kf(self):
-        return 3.23 / self.length * (2.43 * self.length**0.5 + self.speed)
-
-    # C3.3.3.2
-    @property
-    def coef_kt(self):
-        return (
-            4.6 * self.water_plane_area / self.displacement * (self.x_pos_cg) ** 0.5
-        ) ** 0.5
-
-    # C3.3.3.2
-    @property
-    def coef_k(self):
-        return self.coef_kf / self.coef_kt
-
-    # C3.3.3.2
-    @property
-    def coef_kh(self):
-        return self.coef_k**0.35 * ((1 / self.coef_k**2 - 0.11) ** 2 + 1) ** 0.5

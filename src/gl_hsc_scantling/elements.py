@@ -34,7 +34,7 @@ from .locations import (
 from .locations_abc import Location
 from .panels import Panel
 from .stiffeners import Stiffener
-from .vessel import Vessel
+from .vessel import Monohull, Catamaran
 
 
 def _distance(start, end):
@@ -53,7 +53,7 @@ MODEL_OPTIONS = DeSerializerOptions(
     metadata=PrintMetadata(long_name="Element type"),
 )
 
-LOCATION_TYPES = [
+LOCATION_TYPES: list[Location] = [
     Bottom,
     Side,
     WetDeck,
@@ -77,7 +77,7 @@ VESSEL_OPTIONS = DeSerializerOptions(
     metadata=PrintMetadata(long_name="Vessel"),
 )
 X_OPTIONS = DeSerializerOptions(metadata=PrintMetadata(long_name="x", units="m"))
-Y_OPTIONS = DeSerializerOptions(metadata=PrintMetadata(long_name="x", units="m"))
+Z_OPTIONS = DeSerializerOptions(metadata=PrintMetadata(long_name="z", units="m"))
 
 
 @dataclass
@@ -86,8 +86,10 @@ class StructuralElement:
 
     name: str = field(metadata={DESERIALIZER_OPTIONS: NAME_OPTIONS})
     x: float = field(metadata={DESERIALIZER_OPTIONS: X_OPTIONS})
-    z: float = field(metadata={DESERIALIZER_OPTIONS: Y_OPTIONS})
-    vessel: Vessel = field(metadata={DESERIALIZER_OPTIONS: VESSEL_OPTIONS})
+    z: float = field(metadata={DESERIALIZER_OPTIONS: Z_OPTIONS})
+    vessel: Monohull | Catamaran = field(
+        metadata={DESERIALIZER_OPTIONS: VESSEL_OPTIONS}
+    )
     model: Union[Panel, Stiffener] = field(
         metadata={DESERIALIZER_OPTIONS: MODEL_OPTIONS}
     )

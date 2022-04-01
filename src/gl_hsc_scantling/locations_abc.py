@@ -12,6 +12,7 @@ class Pressure(ABC):
 
 class Location(ABC):
     _pressures: list[Pressure]
+    name: str
     units = "kPa"
 
     def calc_pressures(self, elmt):

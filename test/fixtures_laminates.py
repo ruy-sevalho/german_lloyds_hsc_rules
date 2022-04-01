@@ -163,3 +163,40 @@ def sandwich_laminate_exp():
     D = build_sub_matrix(D11, D12, D16, D22, D26, D66)
     stiff_m = build_ABD_matrix(A, B, D)
     return ExpLaminate(thickness=0.02456, stiff_m=stiff_m, name="sandwich_laminate")
+
+
+@pt.fixture
+def sandwich_laminate_sym(sandwich_laminate_skin_input, H80_20mm):
+    return SandwichLaminate(
+        name="sandwich_laminate_sym",
+        outter_laminate_ply_stack=sandwich_laminate_skin_input,
+        core=H80_20mm,
+        symmetric=True,
+    )
+
+
+@pt.fixture
+def sandwich_laminate_sym_exp():
+    A11 = 124942.182621839
+    A12 = 16472.6698461771
+    A16 = 0
+    A22 = 124942.182621839
+    A26 = 0
+    A66 = 20656.8
+    A = build_sub_matrix(A11, A12, A16, A22, A26, A66)
+    B11 = 0
+    B12 = 0
+    B16 = 0
+    B22 = 0
+    B26 = 0
+    B66 = 0
+    B = build_sub_matrix(B11, B12, B16, B22, B26, B66)
+    D11 = 15.411862281875
+    D12 = 2.05138769942001
+    D16 = 0
+    D22 = 15.7069373981431
+    D26 = 0
+    D66 = 2.57244914304001
+    D = build_sub_matrix(D11, D12, D16, D22, D26, D66)
+    stiff_m = build_ABD_matrix(A, B, D)
+    return ExpLaminate(thickness=0.02456, stiff_m=stiff_m, name="sandwich_laminate_sym")

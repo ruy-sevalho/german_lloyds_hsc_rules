@@ -18,13 +18,13 @@ from gl_hsc_scantling.locations import Bottom, Deck, Side, WetDeck
 from gl_hsc_scantling.panels import Panel
 from gl_hsc_scantling.session import Session
 from gl_hsc_scantling.stiffeners import LBar, Stiffener, StiffenerSectionWithFoot
-from gl_hsc_scantling.vessel import Vessel
+from gl_hsc_scantling.vessel import Catamaran
 
 
 @pt.fixture
 def session_example():
     session = Session()
-    vessel = Vessel(
+    vessel = Catamaran(
         name="catamaran",
         speed=15,
         displacement=6,

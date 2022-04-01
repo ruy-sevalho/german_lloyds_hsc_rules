@@ -29,7 +29,15 @@ class ReportConfig:
     max_strain_xy: PrintOptions = PrintOptions()
     f_mass_cont: PrintOptions = PrintOptions()
     f_area_density: PrintOptions = PrintOptions()
-    thickness: PrintOptions = PrintOptions()
+    thickness: PrintOptions = PrintOptions(
+        print_units="mm", round_precision=2, label="t"
+    )
+    thickness_outter: PrintOptions = PrintOptions(
+        print_units="mm", round_precision=2, label=NoEscape(r"t\textsubscript{o}")
+    )
+    thickness_inner: PrintOptions = PrintOptions(
+        print_units="mm", round_precision=2, label=NoEscape(r"t\textsubscript{i}")
+    )
     orientation: PrintOptions = PrintOptions()
     multiple: PrintOptions = PrintOptions()
     strength_shear: PrintOptions = PrintOptions()
@@ -45,6 +53,11 @@ class ReportConfig:
     linear_strain_ratio: PrintOptions = PrintOptions(
         round_precision=2,
         label=NoEscape(r"$\epsilon$"),
+        description="Linear strain",
+    )
+    linear_strain_ratio_simp: PrintOptions = PrintOptions(
+        round_precision=2,
+        label=NoEscape(r"$\epsilon$\textsubscript{s}"),
         description="Linear strain",
     )
     linear_strain_ratio_bottom: PrintOptions = PrintOptions(

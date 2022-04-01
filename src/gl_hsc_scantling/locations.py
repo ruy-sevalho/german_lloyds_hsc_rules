@@ -15,7 +15,6 @@ from dataclasses import dataclass, field
 import numpy as np
 from dataclass_tools.tools import DESERIALIZER_OPTIONS
 
-from gl_hsc_scantling.vessel import Vessel
 
 from .locations_abc import Location, Pressure
 from .panels import Panel
@@ -25,6 +24,7 @@ from .common_field_options import (
     DEADRISE_OPTIONS,
     DECKHOUSE_BREADTH_OPTIONS,
 )
+from gl_hsc_scantling.vessel import Monohull, Catamaran
 
 if TYPE_CHECKING:
     from .elements import StructuralElement
@@ -127,7 +127,7 @@ def _x_lim_sp_len_ratio_max_f(
 
 
 def _ref_area_f(displacement, draft):
-    return 0.7 * (displacement / 2) / draft
+    return 0.7 * displacement / draft
 
 
 def _area_f(span, spacing):
@@ -341,9 +341,9 @@ class ImpactPressure(Pressure):
         )
 
     def _ref_area(self, elmt: "StructuralElement"):
-        return _ref_area_f(
-            displacement=elmt.vessel.displacement, draft=elmt.vessel.draft
-        )
+        factor = {Monohull: 1, Catamaran: 2}
+        displacement = elmt.vessel.displacement / factor[type(elmt.vessel)]
+        return _ref_area_f(displacement=displacement, draft=elmt.vessel.draft)
 
     def _coef_k3(self, elmt: "StructuralElement"):
         return _coef_k3_f(

@@ -27,7 +27,7 @@ from .common_field_options import (
 )
 from .composites import Laminate
 from .structural_model import BoundaryCondition
-from .vessel import Vessel
+from .vessel import Monohull
 
 # TODO refactor panel_coef methods. Use dataclasses instead of primitive dicts
 @dataclass
@@ -54,6 +54,10 @@ class Panel:
     direction_table = {"x": 0, "y": 1}
 
     @property
+    def span_index(self):
+        return self.direction_table[self.span_direction]
+
+    @property
     def geo_asp_r(self):
         """C3.8.3.2.4"""
 
@@ -68,7 +72,7 @@ class Panel:
 
     @property
     def span_direction(self):
-        if self.corr_asp_r < 1:
+        if self.corr_asp_r_canditate < 1:
             return "x"
         return "y"
 
@@ -196,7 +200,7 @@ class Panel:
             self.alpha
             * pressure
             * self.span**4
-            / (12 * self.laminate.bend_stiff[self.direction_table[self.span_direction]])
+            / (12 * self.laminate.bend_stiff[self.span_index])
         )
 
     @property
@@ -224,8 +228,28 @@ class Panel:
         fp = [1, 1.005, 1.01, 1.02, 1.037, 1.061, 1.108, 1.23, 1.545]
         return np.interp(self.chine_angle, xp, fp)
 
+    def simplified_strain(self, momt, section_modulus):
+        """C3.8.3.4 Determination of laminate strains and
+        stresses.
+        """
+
+        return momt / section_modulus
+
     def rule_check(self, pressure):
+        momt = self.max_bend_moment(pressure)
         laminate_check = self.laminate.panel_rule_check(self, pressure=pressure)
+        section_modulus = self.laminate.section_modulus[self.span_index]
+        simp_strain_check = pd.DataFrame(
+            {
+                "linear_strain_ratio_simp": [
+                    Criteria(
+                        calculated_value=self.simplified_strain(momt, section_modulus),
+                        theoretical_limit_value=0.0105,
+                        safety_factor=3,
+                    )
+                ]
+            }
+        )
         deflection_check = pd.DataFrame(
             {
                 "deflection": [
@@ -237,4 +261,4 @@ class Panel:
                 ]
             }
         )
-        return pd.concat([deflection_check, laminate_check], axis=1)
+        return pd.concat([deflection_check, simp_strain_check, laminate_check], axis=1)

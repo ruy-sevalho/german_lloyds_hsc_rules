@@ -411,6 +411,19 @@ class Core:
 
 
 @dataclass
+class CoreAsLaminate:
+    core: Core
+
+    @property
+    def modulus_linear(self):
+        return (self.core.material.modulus_tens + self.core.material.modulus_comp) / 2
+
+    @property
+    def modulus_x(self):
+        return self.modulus_linear
+
+
+@dataclass
 class PlyState:
     stress_global: pd.DataFrame
     strain_local: pd.DataFrame
@@ -553,7 +566,7 @@ class Ply:
                 calculated_value=np.abs(strain_),
                 theoretical_limit_value=limit,
                 safety_factor=safety_factor,
-            )  # .ratio
+            )
             for strain_, limit in zip(strain_local, limit_values)
         ]
         stress_local = self.material.Q_local @ strain_local
@@ -593,20 +606,6 @@ class Laminate(ABC):
 
     name: str
 
-    # Old relic should remove as soon as there is something else working
-    @property
-    def units_table(self):
-        return {
-            "default": (
-                (("kN/m", "kN", "kN m"), ("m/Kn", "1/kN", "1/(kN m)")),
-                (1, 1, 1),
-            ),
-            "Imp_vector": (
-                (("lb/inch", "lb", "lb inch"), ("inch/lb", "1/lb", "1/(lb inch)")),
-                (5.7101471627692, 224.809, 8850.75),
-            ),
-        }
-
     @abstractproperty
     def thickness(self) -> float:
         """Overall laminate thickness. Includes core in sandwich laminates"""
@@ -618,11 +617,21 @@ class Laminate(ABC):
         """
 
     @abstractmethod
-    def panel_rule_check(self, panel, pressure: float) -> pd.DataFrame:
+    def panel_rule_check(self, panel: "Panel", pressure: float) -> pd.DataFrame:
         """Returns a dictionary of rules checks against a given load,
         where the value given is the ratio between the allowed value
         and calculated value.
         """
+
+    @property
+    def resume(self):
+        return pd.DataFrame(
+            {
+                "name": [self.name],
+                "thickness": [Quantity(self.thickness, "m")],
+                "area_density": [Quantity(self.area_density, "kg/m**2")],
+            }
+        )
 
     @property
     def stiff_matrix(self):
@@ -684,18 +693,19 @@ class Laminate(ABC):
     def f_area_weight(self):
         return np.sum([ply.material.f_area_density for ply in self.plies])
 
-    @property
-    def total_area_weight(self):
-        return np.sum(
-            [
-                ply.material.f_area_density / ply.material.f_mass_cont
-                for ply in self.plies
-            ]
-        )
+    @abstractproperty
+    def area_density(self):
+        """Total area density in laminate (kg/m2)"""
 
     @property
     def bend_stiff(self):
         return np.array([self.stiff_matrix[3][3], self.stiff_matrix[4][4]])
+
+    @property
+    def section_modulus(self):
+        return np.array(
+            [bend_stiff_ / (self.thickness / 2) for bend_stiff_ in self.bend_stiff]
+        )
 
     @property
     def bend_stiff_simp(self):
@@ -1053,6 +1063,10 @@ class SingleSkinLaminate(Laminate):
     ply_stack: PlyStack = field(metadata={DESERIALIZER_OPTIONS: PLY_STACK_OPTIONS})
 
     @property
+    def area_density(self):
+        return np.sum([ply.material.total_area_density for ply in self.plies])
+
+    @property
     def thick_array(self) -> float:
         return np.array([ply.thickness for ply in self.ply_stack.stack])
 
@@ -1076,7 +1090,7 @@ class SingleSkinLaminate(Laminate):
             for ply, z_coord in zip(self.ply_stack.stack, self.z_coords)
         ]
 
-    def panel_rule_check(self, panel: "Panel", pressure: float) -> pd.DataFrame:
+    def panel_rule_check(self, panel, pressure) -> pd.DataFrame:
         load = panel.load_array(pressure=pressure)
         response = self.response_plies(load)
         return self.max_strain_ratio(response)
@@ -1089,7 +1103,7 @@ class SandwichLaminate(Laminate):
     name: str
     outter_laminate_ply_stack: PlyStack
     core: Core = field(metadata={DESERIALIZER_OPTIONS: CORE_OPTIONS})
-    inner_laminate_ply_stack: PlyStack = None
+    inner_laminate_ply_stack: Optional[PlyStack] = None
     symmetric: bool = field(
         metadata={DESERIALIZER_OPTIONS: SYMMETRIC_OPTIONS}, default=False
     )
@@ -1136,28 +1150,22 @@ class SandwichLaminate(Laminate):
     @property
     def inner_laminate(self):
         inner_plies_stack = self.inner_laminate_ply_stack
-
         if self.symmetric:
             inner_plies_stack = PlyStack(
-                plies=[
-                    Ply(material=material, orientation=orientation)
-                    for material, orientation in reversed(
-                        self.outter_laminate_ply_stack.stack
-                    )
-                ]
+                plies=[ply for ply in reversed(self.outter_laminate_ply_stack.stack)]
             )
-
         if self.antisymmetric:
             inner_plies_stack = PlyStack(
                 plies=[
-                    Ply(material=material, orientation=-orientation)
-                    for material, orientation in reversed(
-                        self.outter_laminate_ply_stack.stack
-                    )
+                    Ply(material=ply.material, orientation=-ply.orientation)
+                    for ply in reversed(self.outter_laminate_ply_stack.stack)
                 ]
             )
-
         return SingleSkinLaminate(ply_stack=inner_plies_stack, name="inner_skin")
+
+    @property
+    def skins(self):
+        return [self.outter_laminate, self.inner_laminate]
 
     @property
     def plies(self):
@@ -1167,7 +1175,7 @@ class SandwichLaminate(Laminate):
                 z_coord - self.core.thickness / 2 - self.outter_laminate.thickness / 2,
             )
             for ply, z_coord in zip(
-                self.inner_laminate_ply_stack.stack, self.outter_laminate.z_coords
+                self.outter_laminate.ply_stack.stack, self.outter_laminate.z_coords
             )
         ]
         inner_plies = [
@@ -1180,6 +1188,15 @@ class SandwichLaminate(Laminate):
             )
         ]
         return outter_plies + inner_plies
+
+    @property
+    def area_density(self):
+        return (
+            self.outter_laminate.area_density
+            + self.inner_laminate.area_density
+            + self.core.material.resin_absorption
+            + self.core.material.density * self.core.thickness
+        )
 
     @property
     def thickness(self):

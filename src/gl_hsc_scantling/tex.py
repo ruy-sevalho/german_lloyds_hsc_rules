@@ -80,6 +80,7 @@ INPUTS_TITLE = "Inputs"
 PLY_STACK_LIST = "ply stack list"
 PLY_STACK_OPTIONS = "ply stack options"
 RULE_CHECK_RESULT_CAPTION = "Results"
+MATERIALS_RESUME_SECTION_TITLE = "Resume - materials"
 
 pylatex.quantities.UNIT_NAME_TRANSLATIONS.update(
     {"nautical_miles_per_hour": "kt", "arcdegree": "degree", "p": "pascal"}
@@ -186,6 +187,10 @@ def _list_of_entities_dicts_to_table_list(
     options_dict: dict[str, PrintOptions] = dict(),
 ):
     """Creates a table(lists of lists)"""
+
+    # TODO find out better way to handle empty tables
+    if not entities:
+        return None
     table = [
         [
             _print_type(
@@ -267,6 +272,8 @@ def _split_array(table_array, n):
 
 
 def _add_tabular(table_array, cols=None, horizontal_lines=None, split=None):
+    if not table_array:
+        return None
     if cols is None:
         cols = _build_cols(table_array)
     if split:
@@ -293,6 +300,8 @@ def _add_table(
 ):
     # if label is None:
     #     label = "".join(caption.split())
+    if not table_array:
+        return None
 
     data = _add_tabular(
         table_array, cols, horizontal_lines=horizontal_lines, split=split
@@ -564,6 +573,8 @@ def _dataframe_table(
     unit_display: Literal["header", "cell"] = "header",
 ) -> Table:
     """Atention function may mutate dataframe, converting column units. Caller beware"""
+    if df.empty:
+        return None
     width = df.shape[1]
     # column specifications of tabularray package for latex
     first_row = "Q[l, m]"
@@ -639,7 +650,10 @@ def _add_df_table(
     df: pd.DataFrame,
     caption: str,
     config_dict: dict[str, PrintOptions] = ReportConfig().to_dict(),
+    label: str = None,
 ):
+    if df.empty:
+        return None
     table = Table(position="H")
     table.add_caption(caption)
     tblr = Center()
@@ -651,7 +665,20 @@ def _add_df_table(
 
 
 def generate_report(
-    session: "Session", file_name="report", config: ReportConfig = ReportConfig()
+    session: "Session",
+    file_name="report",
+    config: ReportConfig = ReportConfig(),
+    make_pdf: bool = False,
+    ommit_sections: list[
+        Literal[
+            "vessels",
+            "materials",
+            "stiffener_sections",
+            "panels",
+            "stiffener_elements",
+            "results",
+        ]
+    ] = list(),
 ):
     # Document preamble
     geometry_options = NoEscape(r"text={7in,10in}, a4paper, centering")
@@ -685,32 +712,137 @@ def generate_report(
     doc.append(abr_section)
     doc.append(NewPage())
 
-    # Section Vessel
-    section_vessel = Section(VESSEL_SECTION_TITLE)
+    sections_table = {
+        "vessels": vessels_section,
+        "materials": materials_section,
+        "materials_resume": materials_resume_section,
+        "stiffener_sections": stiffener_sections_section,
+        "panels": panels_section,
+        "stiffener_elements": stiffener_elements_section,
+        "results": results_section,
+    }
 
-    # Vessel data
-    vessels = session.vessels
-    for vessel in vessels.values():
-        options_dict = display_options
-        vessel_input = _single_entity_dict_to_table_list(
-            serialize_dataclass(obj=vessel, printing_format=True, include_names=True),
-            options_dict=options_dict,
+    for section_name, section_function in sections_table.items():
+        if section_name not in ommit_sections:
+            doc.append(section_function(session, display_options))
+
+    doc.generate_tex(file_name)
+    if make_pdf:
+        doc.generate_pdf(file_name, clean_tex=False, clean=False)
+    return doc
+
+
+def results_section(session: "Session", display_options: dict):
+    section_results = Section(f"{RULE_CHECK_RESULT_CAPTION}")
+    panels_results_df = session.panels_rule_check()
+    section_results.append(
+        _add_df_table(
+            panels_results_df,
+            caption=f"{PANELS_SECTION_TITLE} results",
+            config_dict=display_options,
         )
-        vessel_loads = vessel.loads_asdict
-        vessel_loads = _single_entity_dict_to_table_list(vessel_loads)
-        vessel_tables = [vessel_input, vessel_loads]
-        captions = [f"{vessel.name} parameters", f"{vessel.name} global loads"]
-        for array, caption, split in zip(vessel_tables, captions, [4, 2]):
-            table = _add_table(
-                table_array=array,
-                cols="l r",
-                caption=caption,
-                split=split,
-                label="".join(caption.split()),
-            )
-            section_vessel.append(table)
-    doc.append(section_vessel)
+    )
+    stiff_results_df = session.stiffeners_rule_check()
+    section_results.append(
+        _add_df_table(
+            stiff_results_df,
+            caption=f"{STIFFENERS_SECTION_TITLE} results",
+            config_dict=display_options,
+        )
+    )
+    return section_results
 
+
+def stiffener_elements_section(session: "Session", display_options: dict):
+    landscape = Landscape()
+    section_stiffeners_elements = Section(STIFFENERS_SECTION_TITLE)
+    sub_section_stiffeners_inputs = Subsection(
+        f"{STIFFENERS_SECTION_TITLE} {INPUTS_TITLE.lower()}"
+    )
+    for location in LOCATION_TYPES:
+        stiffeners = [
+            dict(
+                filter(
+                    lambda item: item[0] not in ["element_type", "location"],
+                    serialize_dataclass(
+                        stiffener,
+                        printing_format=True,
+                        include_names=True,
+                        filter_fields=["vessel"],
+                    ).items(),
+                )
+            )
+            for stiffener in session.stiffener_elements.values()
+            if isinstance(stiffener.location, location)
+        ]
+        if stiffeners:
+            stiffeners_input = _list_of_entities_dicts_to_table_list(
+                stiffeners, header=True, split_units=True, options_dict=display_options
+            )
+            stiffeners_tabular = Center()
+            stiffeners_tabular.append(
+                _add_tabular(stiffeners_input, horizontal_lines=[1])
+            )
+            sub_section_stiffeners_inputs.append(
+                _add_table_(
+                    stiffeners_tabular,
+                    caption=f"{location.name.capitalize()} stiffeners",
+                )
+            )
+
+    section_stiffeners_elements.append(sub_section_stiffeners_inputs)
+    landscape.append(section_stiffeners_elements)
+    return landscape
+
+
+def panels_section(session: "Session", display_options: dict):
+    landscape = Landscape()
+    section_panels = Section(PANELS_SECTION_TITLE)
+    sub_section_panels_inputs = Subsection(
+        f"{PANELS_SECTION_TITLE} {INPUTS_TITLE.lower()}"
+    )
+    for location in LOCATION_TYPES:
+        panels = [
+            dict(
+                filter(
+                    lambda item: item[0] not in ["element_type", "location"],
+                    serialize_dataclass(
+                        panel,
+                        printing_format=True,
+                        include_names=True,
+                        filter_fields=["vessel"],
+                    ).items(),
+                )
+            )
+            for panel in session.panels.values()
+            if isinstance(panel.location, location)
+        ]
+        if panels:
+            panels_input = _list_of_entities_dicts_to_table_list(
+                panels, header=True, split_units=True, options_dict=display_options
+            )
+            panels_tabular = Center()
+            panels_tabular.append(_add_tabular(panels_input, horizontal_lines=[1]))
+            sub_section_panels_inputs.append(
+                _add_table_(
+                    panels_tabular, caption=f"{location.name.capitalize()} panels"
+                )
+            )
+    section_panels.append(sub_section_panels_inputs)
+    landscape.append(section_panels)
+    return landscape
+
+
+def stiffener_sections_section(session: "Session", display_options: dict):
+    section_stiffener_profiles = Section(STIFFENER_PROFILES_SECTION_TITLE)
+    for stiffener in session.stiffener_sections.values():
+        sub_section = Subsection(stiffener.name)
+        sub_section.append(_stiffener_tables(stiffener, options_dict=display_options))
+        section_stiffener_profiles.append(sub_section)
+    return section_stiffener_profiles
+
+
+def materials_section(session: "Session", display_options: dict):
     # Section Materials
     section_materials = Section(MATERIALS_SECTION_TITLE)
     section_constituent_materials = Subsection(CONSTITUENT_MATERIASL_SECTION_TITLE)
@@ -859,106 +991,52 @@ def generate_report(
         for item in data:
             sub_sub_section.append(item)
         sub_section_laminates.append(sub_sub_section)
+
     section_materials.append(sub_section_laminates)
-    doc.append(section_materials)
+    return section_materials
 
-    # Stiffener Sections
-    section_stiffener_profiles = Section(STIFFENER_PROFILES_SECTION_TITLE)
-    for stiffener in session.stiffener_sections.values():
-        sub_section = Subsection(stiffener.name)
-        sub_section.append(_stiffener_tables(stiffener, options_dict=display_options))
-        section_stiffener_profiles.append(sub_section)
-    doc.append(section_stiffener_profiles)
 
-    # Panels
-    locations: list[Location] = LOCATION_TYPES
-    landscape = Landscape()
-    section_panels = Section(PANELS_SECTION_TITLE)
-    sub_section_panels_inputs = Subsection(
-        f"{PANELS_SECTION_TITLE} {INPUTS_TITLE.lower()}"
+def materials_resume_section(session: "Session", display_options: dict):
+    section_resume = Section(MATERIALS_RESUME_SECTION_TITLE)
+    section_resume.append(
+        _add_df_table(
+            session.laminates_resume(),
+            caption="Resume panels",
+            config_dict=display_options,
+        )
     )
-    for location in locations:
-        panels = [
-            dict(
-                filter(
-                    lambda item: item[0] not in ["element_type", "location"],
-                    serialize_dataclass(
-                        panel,
-                        printing_format=True,
-                        include_names=True,
-                        filter_fields=["vessel"],
-                    ).items(),
-                )
-            )
-            for panel in session.panels.values()
-            if isinstance(panel.location, location)
-        ]
-        if panels:
-            panels_input = _list_of_entities_dicts_to_table_list(
-                panels, header=True, split_units=True, options_dict=display_options
-            )
-            panels_tabular = Center()
-            panels_tabular.append(_add_tabular(panels_input, horizontal_lines=[1]))
-            sub_section_panels_inputs.append(
-                _add_table_(
-                    panels_tabular, caption=f"{location.name.capitalize()} panels"
-                )
-            )
-    section_panels.append(sub_section_panels_inputs)
-    landscape.append(section_panels)
-    doc.append(landscape)
-
-    # Stiffeners
-    landscape = Landscape()
-    section_stiffeners_elements = Section(STIFFENERS_SECTION_TITLE)
-    sub_section_stiffeners_inputs = Subsection(
-        f"{STIFFENERS_SECTION_TITLE} {INPUTS_TITLE.lower()}"
+    section_resume.append(
+        _add_df_table(
+            session.stiffeners_resume(),
+            caption="Resume stifferner sections",
+            config_dict=display_options,
+        )
     )
-    for location in locations:
-        stiffeners = [
-            dict(
-                filter(
-                    lambda item: item[0] not in ["element_type", "location"],
-                    serialize_dataclass(
-                        stiffener,
-                        printing_format=True,
-                        include_names=True,
-                        filter_fields=["vessel"],
-                    ).items(),
-                )
-            )
-            for stiffener in session.stiffener_elements.values()
-            if isinstance(stiffener.location, location)
-        ]
-        if stiffeners:
-            stiffeners_input = _list_of_entities_dicts_to_table_list(
-                stiffeners, header=True, split_units=True, options_dict=display_options
-            )
-            stiffeners_tabular = Center()
-            stiffeners_tabular.append(
-                _add_tabular(stiffeners_input, horizontal_lines=[1])
-            )
-            sub_section_stiffeners_inputs.append(
-                _add_table_(
-                    stiffeners_tabular,
-                    caption=f"{location.name.capitalize()} stiffeners",
-                )
-            )
+    return section_resume
 
-    section_stiffeners_elements.append(sub_section_stiffeners_inputs)
-    landscape.append(section_stiffeners_elements)
-    doc.append(landscape)
 
-    section_results = Section(f"{RULE_CHECK_RESULT_CAPTION}")
-    panels_results_df = session.panels_rule_check()
-    section_results.append(
-        _add_df_table(panels_results_df, caption=f"{PANELS_SECTION_TITLE} results")
-    )
-    stiff_results_df = session.stiffeners_rule_check()
-    section_results.append(
-        _add_df_table(stiff_results_df, caption=f"{STIFFENERS_SECTION_TITLE} results")
-    )
-    doc.append(section_results)
-    doc.generate_tex(file_name)
-    doc.generate_pdf(file_name, clean_tex=False, clean=False)
-    return doc
+def vessels_section(session: "Session", display_options: dict):
+    section_vessel = Section(VESSEL_SECTION_TITLE)
+
+    # Vessel data
+    vessels = session.vessels
+    for vessel in vessels.values():
+        options_dict = display_options
+        vessel_input = _single_entity_dict_to_table_list(
+            serialize_dataclass(obj=vessel, printing_format=True, include_names=True),
+            options_dict=options_dict,
+        )
+        # vessel_loads = vessel.loads_asdict
+        # vessel_loads = _single_entity_dict_to_table_list(vessel_loads)
+        vessel_tables = [vessel_input]  # vessel_loads]
+        captions = [f"{vessel.name} parameters"]  # , f"{vessel.name} global loads"]
+        for array, caption, split in zip(vessel_tables, captions, [4]):
+            table = _add_table(
+                table_array=array,
+                cols="l r",
+                caption=caption,
+                split=split,
+                label="".join(caption.split()),
+            )
+            section_vessel.append(table)
+    return section_vessel

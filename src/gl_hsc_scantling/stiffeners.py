@@ -16,6 +16,7 @@ from dataclass_tools.tools import (
     DeSerializerOptions,
     PrintMetadata,
 )
+from quantities import Quantity
 
 from gl_hsc_scantling.utils import Criteria
 
@@ -213,6 +214,15 @@ class HomogeneousSectionElement(SectionElement):
         Local coordinate system rotaded. Rotation angle in degrees.
         """
 
+    @abc.abstractproperty
+    def density(self) -> float:
+        """Density of section element kg/m3."""
+
+    @property
+    def linear_density(self) -> float:
+        """Area density of section element kg/m2."""
+        return self.area * self.density
+
 
 @dataclass
 class RectSectionElement(HomogeneousSectionElement):
@@ -220,6 +230,10 @@ class RectSectionElement(HomogeneousSectionElement):
 
     laminate: Laminate
     dimension: float
+
+    @property
+    def density(self) -> float:
+        return self.laminate.area_density / self.laminate.thickness
 
     def bend_stiff(self, angle=0) -> BendStiff:
         return BendStiff(*self.inertia(angle) * self.laminate.modulus_x)
@@ -358,6 +372,10 @@ class Elmt(SectionElement):
     def stiff(self) -> float:
         return self.sect_elmt.stiff
 
+    @property
+    def linear_density(self) -> float:
+        return self.sect_elmt.linear_density
+
 
 class SectionElementList(abc.ABC):
     @abc.abstractproperty
@@ -436,6 +454,21 @@ class StiffenerSection(SectionElement):
     def shear_stiff(self):
         return np.sum([elmt.sect_elmt.shear_stiff for elmt in self.web])
 
+    @property
+    def linear_density(self) -> float:
+        return sum([elmt.linear_density for elmt in self.elmts])
+
+    @property
+    def resume(self):
+        return pd.DataFrame(
+            {
+                "name": [self.name],
+                "linear_density": [Quantity(self.linear_density, "kg/m")],
+                "bend_stiff": [Quantity(self.bend_stiff_0.y, "kN*m**2")],
+                "shear_stiff": [Quantity(self.shear_stiff, "kN")],
+            }
+        )
+
 
 @dataclass
 class LBar(SectionElementListWithFoot):
@@ -511,7 +544,495 @@ class LBar(SectionElementListWithFoot):
         return self.laminate_web.buckling_shear_strain(self.dimension_web, length)
 
 
-ELMT_CONTAINER_SUBTYPES = [LBar]
+@dataclass
+class TopHat(SectionElementListWithFoot):
+    """L bar profile - composed of a web and a flange. Dimensions in m."""
+
+    laminate_web: SingleSkinLaminate = field(
+        metadata={DESERIALIZER_OPTIONS: LAMINATE_WEB_OPTIONS}
+    )
+    dimension_web: float = field(metadata={DESERIALIZER_OPTIONS: DIMENSION_WEB_OPTIONS})
+    laminate_flange: SingleSkinLaminate = field(
+        metadata={DESERIALIZER_OPTIONS: LAMINATE_FLANGE_OPTIONS}
+    )
+    dimension_flange: float = field(
+        metadata={DESERIALIZER_OPTIONS: DIMENSION_FLANGE_OPTIONS}
+    )
+    name: str = field(metadata={DESERIALIZER_OPTIONS: NAME_OPTIONS})
+
+    @property
+    def elmts(self) -> list[Elmt]:
+        web_elements = [
+            Elmt(
+                SectionElmtRectVert(self.laminate_web, self.dimension_web),
+                web=True,
+                anchor_pt=Point2D(-self.dimension_flange / 2, 0),
+            ),
+            Elmt(
+                SectionElmtRectVert(self.laminate_web, self.dimension_web),
+                web=True,
+                anchor_pt=Point2D(self.dimension_flange / 2, 0),
+            ),
+        ]
+        return web_elements + [
+            Elmt(
+                SectionElmtRectHoriz(self.laminate_flange, self.dimension_flange),
+                anchor_pt=Point2D(
+                    0,
+                    self.dimension_web,
+                ),
+            ),
+        ]
+
+    @property
+    def foot_width(self) -> float:
+        return self.dimension_flange
+
+    def shear_buckling_strain(self, length: float) -> float:
+        return self.laminate_web.buckling_shear_strain(self.dimension_web, length)
+
+
+@dataclass
+class FlatBar(SectionElementListWithFoot):
+    """I bar profile - composed of a web only. Dimensions in m."""
+
+    laminate_web: Laminate = field(
+        metadata={DESERIALIZER_OPTIONS: LAMINATE_WEB_OPTIONS}
+    )
+    dimension_web: float = field(metadata={DESERIALIZER_OPTIONS: DIMENSION_WEB_OPTIONS})
+
+    name: str = field(metadata={DESERIALIZER_OPTIONS: NAME_OPTIONS})
+
+    @property
+    def elmts(self) -> list[Elmt]:
+        if isinstance(self.laminate_web, SingleSkinLaminate):
+            web_elements = [
+                Elmt(
+                    SectionElmtRectVert(self.laminate_web, self.dimension_web), web=True
+                )
+            ]
+        elif isinstance(self.laminate_web, SandwichLaminate):
+            web_elements = [
+                Elmt(
+                    SectionElmtRectVert(
+                        self.laminate_web.outter_laminate, self.dimension_web
+                    ),
+                    web=True,
+                    anchor_pt=Point2D(
+                        -(
+                            self.laminate_web.core.thickness
+                            + self.laminate_web.outter_laminate.thickness
+                        )
+                        / 2,
+                        0,
+                    ),
+                ),
+                Elmt(
+                    SectionElmtRectVert(
+                        self.laminate_web.inner_laminate, self.dimension_web
+                    ),
+                    web=True,
+                    anchor_pt=Point2D(
+                        (
+                            self.laminate_web.core.thickness
+                            + self.laminate_web.outter_laminate.thickness
+                        )
+                        / 2,
+                        0,
+                    ),
+                ),
+            ]
+
+        return web_elements
+
+    @property
+    def foot_width(self) -> float:
+        return self.laminate_web.thickness
+
+    def shear_buckling_strain(self, length: float) -> float:
+        return self.laminate_web.buckling_shear_strain(self.dimension_web, length)
+
+
+@dataclass
+class OpenU(SectionElementListWithFoot):
+    """L bar profile - composed of a web and a flange. Dimensions in m."""
+
+    laminate_web: Laminate = field(
+        metadata={DESERIALIZER_OPTIONS: LAMINATE_WEB_OPTIONS}
+    )
+    dimension_web: float = field(metadata={DESERIALIZER_OPTIONS: DIMENSION_WEB_OPTIONS})
+    laminate_flange: Laminate = field(
+        metadata={DESERIALIZER_OPTIONS: LAMINATE_FLANGE_OPTIONS}
+    )
+    dimension_flange: float = field(
+        metadata={DESERIALIZER_OPTIONS: DIMENSION_FLANGE_OPTIONS}
+    )
+    name: str = field(metadata={DESERIALIZER_OPTIONS: NAME_OPTIONS})
+
+    @property
+    def elmts(self) -> list[Elmt]:
+        if isinstance(self.laminate_web, SingleSkinLaminate):
+            web_elements = [
+                Elmt(
+                    SectionElmtRectVert(self.laminate_web, self.dimension_web),
+                    web=True,
+                    anchor_pt=Point2D(-self.dimension_flange / 2, 0),
+                ),
+                Elmt(
+                    SectionElmtRectVert(self.laminate_web, self.dimension_web),
+                    web=True,
+                    anchor_pt=Point2D(self.dimension_flange / 2, 0),
+                ),
+            ]
+        elif isinstance(self.laminate_web, SandwichLaminate):
+            y_inner = (
+                self.dimension_flange / 2
+                - self.laminate_web.thickness_eff / 2
+                - self.laminate_web.core.thickness
+            )
+            web_elements = [
+                Elmt(
+                    SectionElmtRectVert(
+                        self.laminate_web.outter_laminate, self.dimension_web
+                    ),
+                    web=True,
+                    anchor_pt=Point2D(-self.dimension_flange / 2, 0),
+                ),
+                Elmt(
+                    SectionElmtRectVert(
+                        self.laminate_web.inner_laminate, self.dimension_web
+                    ),
+                    web=True,
+                    anchor_pt=Point2D(
+                        -y_inner,
+                        0,
+                    ),
+                ),
+                Elmt(
+                    SectionElmtRectVert(
+                        self.laminate_web.inner_laminate, self.dimension_web
+                    ),
+                    web=True,
+                    anchor_pt=Point2D(y_inner, 0),
+                ),
+                Elmt(
+                    SectionElmtRectVert(
+                        self.laminate_web.outter_laminate, self.dimension_web
+                    ),
+                    web=True,
+                    anchor_pt=Point2D(self.dimension_flange / 2, 0),
+                ),
+            ]
+        if isinstance(self.laminate_flange, SingleSkinLaminate):
+            flange_elements = [
+                Elmt(
+                    SectionElmtRectHoriz(
+                        laminate=self.laminate_flange, dimension=self.dimension_flange
+                    ),
+                    anchor_pt=Point2D(0, self.dimension_web),
+                )
+            ]
+        elif isinstance(self.laminate_flange, SandwichLaminate):
+            flange_elements = [
+                Elmt(
+                    SectionElmtRectHoriz(
+                        laminate=self.laminate_flange.inner_laminate,
+                        dimension=self.dimension_flange,
+                    ),
+                    anchor_pt=Point2D(0, self.dimension_web),
+                ),
+                Elmt(
+                    SectionElmtRectHoriz(
+                        laminate=self.laminate_flange.outter_laminate,
+                        dimension=self.dimension_flange,
+                    ),
+                    anchor_pt=Point2D(
+                        0,
+                        self.dimension_web
+                        + self.laminate_flange.outter_laminate.thickness
+                        + self.laminate_flange.core.thickness,
+                    ),
+                ),
+            ]
+        return web_elements + flange_elements
+
+    @property
+    def foot_width(self) -> float:
+        return self.dimension_flange
+
+    def shear_buckling_strain(self, length: float) -> float:
+        return self.laminate_web.buckling_shear_strain(self.dimension_web, length)
+
+
+@dataclass
+class ClosedU(SectionElementListWithFoot):
+    """L bar profile - composed of a web and a flange. Dimensions in m."""
+
+    laminate_web: Laminate = field(
+        metadata={DESERIALIZER_OPTIONS: LAMINATE_WEB_OPTIONS}
+    )
+    dimension_web: float = field(metadata={DESERIALIZER_OPTIONS: DIMENSION_WEB_OPTIONS})
+    laminate_flange: Laminate = field(
+        metadata={DESERIALIZER_OPTIONS: LAMINATE_FLANGE_OPTIONS}
+    )
+    dimension_flange: float = field(
+        metadata={DESERIALIZER_OPTIONS: DIMENSION_FLANGE_OPTIONS}
+    )
+    laminate_flange_lower: SingleSkinLaminate = field(
+        metadata={DESERIALIZER_OPTIONS: LAMINATE_FLANGE_OPTIONS}
+    )
+    name: str = field(metadata={DESERIALIZER_OPTIONS: NAME_OPTIONS})
+
+    @property
+    def elmts(self) -> list[Elmt]:
+        if isinstance(self.laminate_web, SingleSkinLaminate):
+            web_elements = [
+                Elmt(
+                    SectionElmtRectVert(self.laminate_web, self.dimension_web),
+                    web=True,
+                    anchor_pt=Point2D(-self.dimension_flange / 2, 0),
+                ),
+                Elmt(
+                    SectionElmtRectVert(self.laminate_web, self.dimension_web),
+                    web=True,
+                    anchor_pt=Point2D(self.dimension_flange / 2, 0),
+                ),
+            ]
+        elif isinstance(self.laminate_web, SandwichLaminate):
+            y_inner = (
+                self.dimension_flange / 2
+                - self.laminate_web.thickness_eff / 2
+                - self.laminate_web.core.thickness
+            )
+            web_elements = [
+                Elmt(
+                    SectionElmtRectVert(
+                        self.laminate_web.outter_laminate, self.dimension_web
+                    ),
+                    web=True,
+                    anchor_pt=Point2D(-self.dimension_flange / 2, 0),
+                ),
+                Elmt(
+                    SectionElmtRectVert(
+                        self.laminate_web.inner_laminate, self.dimension_web
+                    ),
+                    web=True,
+                    anchor_pt=Point2D(
+                        -y_inner,
+                        0,
+                    ),
+                ),
+                Elmt(
+                    SectionElmtRectVert(
+                        self.laminate_web.inner_laminate, self.dimension_web
+                    ),
+                    web=True,
+                    anchor_pt=Point2D(y_inner, 0),
+                ),
+                Elmt(
+                    SectionElmtRectVert(
+                        self.laminate_web.outter_laminate, self.dimension_web
+                    ),
+                    web=True,
+                    anchor_pt=Point2D(self.dimension_flange / 2, 0),
+                ),
+            ]
+        if isinstance(self.laminate_flange, SingleSkinLaminate):
+            flange_elements = [
+                Elmt(
+                    SectionElmtRectHoriz(
+                        laminate=self.laminate_flange, dimension=self.dimension_flange
+                    ),
+                    anchor_pt=Point2D(0, self.dimension_web),
+                )
+            ]
+        elif isinstance(self.laminate_flange, SandwichLaminate):
+            flange_elements = [
+                Elmt(
+                    SectionElmtRectHoriz(
+                        laminate=self.laminate_flange.inner_laminate,
+                        dimension=self.dimension_flange,
+                    ),
+                    anchor_pt=Point2D(0, self.dimension_web),
+                ),
+                Elmt(
+                    SectionElmtRectHoriz(
+                        laminate=self.laminate_flange.outter_laminate,
+                        dimension=self.dimension_flange,
+                    ),
+                    anchor_pt=Point2D(
+                        0,
+                        self.dimension_web
+                        + self.laminate_flange.outter_laminate.thickness
+                        + self.laminate_flange.core.thickness,
+                    ),
+                ),
+            ]
+        flange_elements = flange_elements + [
+            Elmt(
+                sect_elmt=SectionElmtRectHoriz(
+                    laminate=self.laminate_flange_lower,
+                    dimension=2 * self.laminate_web.thickness,
+                ),
+                anchor_pt=Point2D(0, 0),
+            )
+        ]
+        return web_elements + flange_elements
+
+    @property
+    def foot_width(self) -> float:
+        return self.dimension_flange
+
+    def shear_buckling_strain(self, length: float) -> float:
+        return self.laminate_web.buckling_shear_strain(self.dimension_web, length)
+
+
+@dataclass
+class Box(SectionElementListWithFoot):
+    """L bar profile - composed of a web and a flange. Dimensions in m."""
+
+    laminate_web: Laminate = field(
+        metadata={DESERIALIZER_OPTIONS: LAMINATE_WEB_OPTIONS}
+    )
+    dimension_web: float = field(metadata={DESERIALIZER_OPTIONS: DIMENSION_WEB_OPTIONS})
+    laminate_flange: Laminate = field(
+        metadata={DESERIALIZER_OPTIONS: LAMINATE_FLANGE_OPTIONS}
+    )
+    dimension_flange: float = field(
+        metadata={DESERIALIZER_OPTIONS: DIMENSION_FLANGE_OPTIONS}
+    )
+    name: str = field(metadata={DESERIALIZER_OPTIONS: NAME_OPTIONS})
+
+    @property
+    def elmts(self) -> list[Elmt]:
+        dimension = self.dimension_web - self.laminate_flange.thickness * 2
+        if isinstance(self.laminate_web, SingleSkinLaminate):
+            web_elements = [
+                Elmt(
+                    SectionElmtRectVert(self.laminate_web, dimension),
+                    web=True,
+                    anchor_pt=Point2D(
+                        -self.dimension_flange / 2, self.laminate_flange.thickness
+                    ),
+                ),
+                Elmt(
+                    SectionElmtRectVert(self.laminate_web, dimension),
+                    web=True,
+                    anchor_pt=Point2D(
+                        self.dimension_flange / 2 - self.thickness,
+                        self.laminate_flange.thickness,
+                    ),
+                ),
+            ]
+        elif isinstance(self.laminate_web, SandwichLaminate):
+            y_inner = (
+                self.dimension_flange / 2
+                - self.laminate_web.thickness_eff / 2
+                - self.laminate_web.core.thickness
+            )
+
+            web_elements = [
+                Elmt(
+                    SectionElmtRectVert(self.laminate_web.outter_laminate, dimension),
+                    web=True,
+                    anchor_pt=Point2D(
+                        -self.dimension_flange / 2, self.laminate_flange.thickness
+                    ),
+                ),
+                Elmt(
+                    SectionElmtRectVert(self.laminate_web.inner_laminate, dimension),
+                    web=True,
+                    anchor_pt=Point2D(
+                        -y_inner,
+                        self.laminate_flange.thickness,
+                    ),
+                ),
+                Elmt(
+                    SectionElmtRectVert(
+                        self.laminate_web.inner_laminate, self.dimension_web
+                    ),
+                    web=True,
+                    anchor_pt=Point2D(y_inner, self.laminate_flange.thickness),
+                ),
+                Elmt(
+                    SectionElmtRectVert(
+                        self.laminate_web.outter_laminate, self.dimension_web
+                    ),
+                    web=True,
+                    anchor_pt=Point2D(
+                        self.dimension_flange / 2, self.laminate_flange.thickness
+                    ),
+                ),
+            ]
+        if isinstance(self.laminate_flange, SingleSkinLaminate):
+            flange_elements = [
+                Elmt(
+                    SectionElmtRectHoriz(
+                        laminate=self.laminate_flange, dimension=self.dimension_flange
+                    ),
+                    anchor_pt=Point2D(0, 0),
+                ),
+                Elmt(
+                    SectionElmtRectHoriz(
+                        laminate=self.laminate_flange, dimension=self.dimension_flange
+                    ),
+                    anchor_pt=Point2D(
+                        0, self.dimension_web - self.laminate_flange.thickness
+                    ),
+                ),
+            ]
+        elif isinstance(self.laminate_flange, SandwichLaminate):
+            flange_elements = [
+                Elmt(
+                    SectionElmtRectHoriz(
+                        laminate=self.laminate_flange.outter_laminate,
+                        dimension=self.dimension_flange,
+                    ),
+                    anchor_pt=Point2D(0, 0),
+                ),
+                Elmt(
+                    SectionElmtRectHoriz(
+                        laminate=self.laminate_flange.inner_laminate,
+                        dimension=self.dimension_flange,
+                    ),
+                    anchor_pt=Point2D(
+                        0,
+                        +self.laminate_flange.outter_laminate.thickness
+                        + self.laminate_flange.core.thickness,
+                    ),
+                ),
+                Elmt(
+                    SectionElmtRectHoriz(
+                        laminate=self.laminate_flange.inner_laminate,
+                        dimension=self.dimension_flange,
+                    ),
+                    anchor_pt=Point2D(
+                        0, self.dimension_web - self.laminate_flange.thickness
+                    ),
+                ),
+                Elmt(
+                    SectionElmtRectHoriz(
+                        laminate=self.laminate_flange.outter_laminate,
+                        dimension=self.dimension_flange,
+                    ),
+                    anchor_pt=Point2D(
+                        0,
+                        self.dimension_web
+                        - self.laminate_flange.outter_laminate.thickness,
+                    ),
+                ),
+            ]
+        return web_elements + flange_elements
+
+    @property
+    def foot_width(self) -> float:
+        return self.dimension_flange
+
+    def shear_buckling_strain(self, length: float) -> float:
+        return self.laminate_web.buckling_shear_strain(self.dimension_web, length)
+
+
+ELMT_CONTAINER_SUBTYPES = [LBar, FlatBar, TopHat, OpenU, ClosedU, Box]
 ELMT_CONTAINER_SUBTYPE_TABLE = {typ.__name__: typ for typ in ELMT_CONTAINER_SUBTYPES}
 ELMT_CONTAINER_OPTIONS = DeSerializerOptions(
     add_type=True,
@@ -551,7 +1072,7 @@ class AttPlateSandwich(SectionElementList):
     @property
     def elmts(self):
         z_inner = self.laminate.thickness - self.laminate.skins[1].thickness
-        anchors = [(0, 0), (0, z_inner)]
+        anchors = [Point2D(0, 0), Point2D(0, z_inner)]
         return [
             Elmt(SectionElmtRectHoriz(skin, self.dimension), anchor_pt=anchor)
             for skin, anchor in zip(self.laminate.skins, anchors)

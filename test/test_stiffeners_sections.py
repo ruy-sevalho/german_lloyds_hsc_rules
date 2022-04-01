@@ -26,3 +26,11 @@ def stiff_section_check(section: StiffenerSection, exp: ExpStiffenerSection):
 # Comment
 def test_lbar_01(lbar_01, lbar_01_exp):
     stiff_section_check(lbar_01, lbar_01_exp)
+
+
+def test_ibar_01(ibar_01, ibar_01_exp):
+    stiff_section_check(ibar_01, ibar_01_exp)
+
+
+def test_top_hat_01(top_hat_01, top_hat_01_exp):
+    stiff_section_check(top_hat_01, top_hat_01_exp)

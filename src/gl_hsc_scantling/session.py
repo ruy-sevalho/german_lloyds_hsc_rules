@@ -21,24 +21,27 @@ from gl_hsc_scantling.composites import (
     SandwichLaminate,
     SingleSkinLaminate,
 )
-from gl_hsc_scantling.elements import StructuralElement
+from gl_hsc_scantling.elements import VESSEL_OPTIONS, StructuralElement
 from gl_hsc_scantling.panels import Panel
 from gl_hsc_scantling.stiffeners import (
     Stiffener,
     StiffenerSection,
     StiffenerSectionWithFoot,
 )
-from gl_hsc_scantling.vessel import Vessel
+from gl_hsc_scantling.vessel import Catamaran, Monohull
 
 TYPE_LABEL = "typ"
 
 LAMINATE_OPTIONS = DeSerializerOptions(add_type=True)
 STIFFENER_OPTIONS = DeSerializerOptions(add_type=True)
+VESSEL_OPTIONS = DeSerializerOptions(add_type=True)
 
 
 @dataclass
 class Session:
-    vessels: dict[str, Vessel] = field(default_factory=dict)
+    vessels: dict[str, Monohull | Catamaran] = field(
+        default_factory=dict, metadata={DESERIALIZER_OPTIONS: VESSEL_OPTIONS}
+    )
     fibers: dict[str, Fiber] = field(default_factory=dict)
     matrices: dict[str, Matrix] = field(default_factory=dict)
     laminas: dict[str, Lamina] = field(default_factory=dict)
@@ -66,7 +69,7 @@ class Session:
     def _sort_item(
         self,
         item: Union[
-            Vessel,
+            Monohull,
             Fiber,
             Matrix,
             CoreMat,
@@ -79,7 +82,7 @@ class Session:
     ) -> dict[
         str,
         Union[
-            Vessel,
+            Monohull,
             Fiber,
             Matrix,
             CoreMat,
@@ -91,7 +94,8 @@ class Session:
         ],
     ]:
         table = {
-            Vessel: self.vessels,
+            Monohull: self.vessels,
+            Catamaran: self.vessels,
             Fiber: self.fibers,
             Matrix: self.matrices,
             CoreMat: self.core_materials,
@@ -110,7 +114,8 @@ class Session:
         self,
         stuff=list[
             Union[
-                Vessel,
+                Monohull,
+                Catamaran,
                 Fiber,
                 Matrix,
                 CoreMat,
@@ -190,7 +195,12 @@ class Session:
 
     def load_session(self, session: dict):
         if session.get("vessels"):
-            self.vessels.update(self._load_list(session["vessels"], Vessel))
+            self.vessels.update(
+                self._load_list_multiple_types(
+                    session["vessels"],
+                    subtypes_table={typ.__name__: typ for typ in [Monohull, Catamaran]},
+                )
+            )
         if session.get("matrices"):
             self.matrices.update(self._load_list(session["matrices"], Matrix))
         if session.get("fibers"):
@@ -259,18 +269,30 @@ class Session:
         d = loads(string)
         self.load_session(d)
 
+    def laminates_resume(self):
+        """Resume of laminates properties."""
+        df = pd.DataFrame()
+        for laminate in self.laminates.values():
+            df = pd.concat([df, laminate.resume], ignore_index=True)
+        return df
+
+    def stiffeners_resume(self):
+        """Resume of laminates properties."""
+        df = pd.DataFrame()
+        for stiff in self.stiffener_sections.values():
+            df = pd.concat([df, stiff.resume], ignore_index=True)
+        return df
+
     def panels_rule_check(self):
         df = pd.DataFrame()
         for panel in self.panels.values():
             df = pd.concat([df, panel.rule_check], ignore_index=True)
-        n = df["name"][0]
         return df
 
     def stiffeners_rule_check(self):
         df = pd.DataFrame()
         for stifferner in self.stiffener_elements.values():
             df = pd.concat([df, stifferner.rule_check], ignore_index=True)
-        n = df["name"][0]
         return df
 
     @property

@@ -51,3 +51,7 @@ def test_et_0900_20x_45deg(et_0900_20x_45deg, et_0900_20x_45deg_exp):
 
 def test_sandwich_laminate(sandwich_laminate, sandwich_laminate_exp):
     laminate_check(sandwich_laminate, sandwich_laminate_exp)
+
+
+def test_sandwich_laminate_sym(sandwich_laminate_sym, sandwich_laminate_sym_exp):
+    laminate_check(sandwich_laminate_sym, sandwich_laminate_sym_exp)
